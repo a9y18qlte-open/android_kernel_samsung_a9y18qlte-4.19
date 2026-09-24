@@ -33,6 +33,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/sched.h>
 #include <linux/seq_file.h>
+#include <soc/qcom/restart.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <linux/sysrq.h>
@@ -280,8 +281,10 @@ static void sec_debug_set_upload_magic(unsigned int magic)
 {
 	__pr_err("(%s) %x\n", __func__, magic);
 
-	if (magic)
+	if (magic != RESTART_REASON_NORMAL)
 		sec_debug_set_qc_dload_magic(1);
+	else
+		sec_debug_set_qc_dload_magic(0);
 	__raw_writel(magic, qcom_restart_reason);
 
 	flush_cache_all();
@@ -320,16 +323,11 @@ static int sec_debug_normal_reboot_handler(struct notifier_block *nb,
 
 void sec_debug_update_dload_mode(const int restart_mode, const int in_panic)
 {
-#ifdef CONFIG_SEC_DEBUG_LOW_LOG
 	if (sec_debug_is_enabled() &&
 	    ((restart_mode == RESTART_DLOAD) || in_panic))
 		set_dload_mode(1);
 	else
 		set_dload_mode(0);
-#else
-	/* FIXME: dead code? */
-	/* set_dload_mod((RESTART_DLOAD == restart_mode) || in_panic); */
-#endif
 }
 
 static inline void __sec_debug_set_restart_reason(
@@ -525,7 +523,7 @@ static inline void sec_debug_pm_restart(const char *cmd)
 	flush_cache_all();
 	outer_flush_all();
 
-	arm_pm_restart(REBOOT_COLD, cmd);
+	arm_pm_restart(REBOOT_WARM, cmd);
 
 	/* while (1) ; */
 	asm volatile ("b .");
@@ -644,32 +642,26 @@ static int sec_debug_panic_handler(struct notifier_block *nb,
 #ifdef CONFIG_USER_RESET_DEBUG
 	sec_debug_store_backtrace();
 #endif
-	sec_debug_set_upload_magic(RESTART_REASON_SEC_DEBUG_MODE);
-
 	__pr_err("%s :%s\n", __func__, (char *)buf);
 
-	for (i = 0; i < ARRAY_SIZE(upload_cause); i++) {
-		len = strnlen(buf, MAX_STR_LEN);
-		if (__sec_debug_strncmp(buf, upload_cause[i].msg, len,
-					upload_cause[i].func)) {
-			sec_debug_set_upload_cause(upload_cause[i].type);
-			break;
+	if (sec_debug_is_enabled()) {
+		sec_debug_set_upload_magic(RESTART_REASON_SEC_DEBUG_MODE);
+
+		for (i = 0; i < ARRAY_SIZE(upload_cause); i++) {
+			len = strnlen(buf, MAX_STR_LEN);
+			if (__sec_debug_strncmp(buf, upload_cause[i].msg, len,
+						upload_cause[i].func)) {
+				sec_debug_set_upload_cause(upload_cause[i].type);
+				break;
+			}
 		}
-	}
 
-	if (i == ARRAY_SIZE(upload_cause))
-		sec_debug_set_upload_cause(UPLOAD_CAUSE_KERNEL_PANIC);
-
-	if (!sec_debug_is_enabled()) {
-#ifdef CONFIG_SEC_DEBUG_LOW_LOG
-		sec_debug_hw_reset();
-#endif
-		/* SEC will get reset_summary.html in debug low.
-		 * reset_summary.html need more information about abnormal reset
-		 * or kernel panic.
-		 * So we skip as below
-		 */
-		/* return -EPERM; */
+		if (i == ARRAY_SIZE(upload_cause))
+			sec_debug_set_upload_cause(UPLOAD_CAUSE_KERNEL_PANIC);
+	} else {
+		set_dload_mode(0);
+		sec_debug_set_upload_magic(RESTART_REASON_NORMAL);
+		sec_debug_set_upload_cause(UPLOAD_CAUSE_INIT);
 	}
 
 	/* enable after SSR feature */
@@ -685,15 +677,23 @@ static int sec_debug_panic_handler(struct notifier_block *nb,
 	 * corrupt stacks below the saved sp
 	 */
 	sec_debug_save_context();
-	sec_debug_hw_reset();
-
+	/* Do NOT call sec_debug_hw_reset() here!
+	 * Allow panic() to run kmsg_dump(KMSG_DUMP_PANIC) and console_flush_on_panic()
+	 * so ramoops can capture the crash log before emergency_restart() runs.
+	 */
 	return 0;
 }
 
 void sec_debug_prepare_for_wdog_bark_reset(void)
 {
-	sec_debug_set_upload_magic(RESTART_REASON_SEC_DEBUG_MODE);
-	sec_debug_set_upload_cause(UPLOAD_CAUSE_NON_SECURE_WDOG_BARK);
+	if (sec_debug_is_enabled()) {
+		sec_debug_set_upload_magic(RESTART_REASON_SEC_DEBUG_MODE);
+		sec_debug_set_upload_cause(UPLOAD_CAUSE_NON_SECURE_WDOG_BARK);
+	} else {
+		set_dload_mode(0);
+		sec_debug_set_upload_magic(RESTART_REASON_NORMAL);
+		sec_debug_set_upload_cause(UPLOAD_CAUSE_INIT);
+	}
 }
 
 static struct notifier_block nb_reboot_block = {
@@ -908,8 +908,14 @@ int __init sec_debug_init(void)
 	register_reboot_notifier(&nb_reboot_block);
 	atomic_notifier_chain_register(&panic_notifier_list, &nb_panic_block);
 
-	sec_debug_set_upload_magic(RESTART_REASON_SEC_DEBUG_MODE);
-	sec_debug_set_upload_cause(UPLOAD_CAUSE_INIT);
+	if (sec_debug_is_enabled()) {
+		sec_debug_set_upload_magic(RESTART_REASON_SEC_DEBUG_MODE);
+		sec_debug_set_upload_cause(UPLOAD_CAUSE_INIT);
+	} else {
+		set_dload_mode(0);
+		sec_debug_set_upload_magic(RESTART_REASON_NORMAL);
+		sec_debug_set_upload_cause(UPLOAD_CAUSE_INIT);
+	}
 
 	create_ap_serial_node();
 
