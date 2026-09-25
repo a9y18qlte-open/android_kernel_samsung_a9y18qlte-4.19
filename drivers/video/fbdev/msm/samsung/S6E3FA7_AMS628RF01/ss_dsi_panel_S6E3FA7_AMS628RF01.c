@@ -1928,7 +1928,7 @@ static int poc_read(struct samsung_display_driver_data *vdd, u8 *buf, u32 read_p
 		poc_read_tx_cmds->cmds[0].payload[vdd->poc_driver.read_addr_idx[2]] = pos & 0x0000FF;
 		mdss_samsung_send_cmd(ctrl_pdata, TX_POC_READ);
 		usleep_range(delay_us, delay_us);
-		mdss_samsung_send_cmd(ctrl_pdata, RX_POC_READ);
+		mdss_samsung_send_cmd(ctrl_pdata, (enum mipi_samsung_tx_cmd_list)RX_POC_READ);
 
 		buf[pos] = rx_buf[0];
 
