@@ -450,7 +450,7 @@ static int usb_notifier_probe(struct platform_device *pdev)
 #endif
 #if defined(CONFIG_VBUS_NOTIFIER)
 	vbus_notifier_register(&pdata->vbus_nb, vbus_handle_notification,
-			       MUIC_NOTIFY_DEV_USB);
+			       VBUS_NOTIFY_DEV_USB);
 #endif
 	o_notify = get_otg_notify();
 	o_notify->host_high = 0;
