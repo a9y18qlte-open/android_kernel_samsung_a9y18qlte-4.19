@@ -497,7 +497,7 @@ static int mdss_dsi_panel_power_lp(struct mdss_panel_data *pdata, int enable)
 		return -EINVAL;
 	}
 
-	if (!vdd->lpm_power_control || !vdd->lpm_power_control_supply_name) {
+	if (!vdd->lpm_power_control || !vdd->lpm_power_control_supply_name[0]) {
 		pr_err("%s: No panel power control for lp \n", __func__);
 		return rc;
 	}
