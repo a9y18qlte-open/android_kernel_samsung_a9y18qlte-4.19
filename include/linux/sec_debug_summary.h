@@ -181,8 +181,8 @@ struct basic_type_int {
 };
 
 struct member_type {
-	uint16_t size;
-	uint16_t offset;
+	volatile uint16_t size;
+	volatile uint16_t offset;
 };
 
 typedef struct member_type member_type_int;
