@@ -3273,7 +3273,7 @@ static void tfa98xx_interrupt(struct work_struct *work)
 				enum tfa98xx_error err;
 				/* Clock lost. Set I2CR to remove POP noise */
 				pr_info("No clock detected. Resetting I2CR to avoid pop on 72!\n");
-				err = tfa98xx_tfa_start
+				err = (enum tfa98xx_error)tfa98xx_tfa_start
 					(tfa98xx, tfa98xx_profile,
 					 tfa98xx_vsteps);
 				if (err != TFA98XX_ERROR_OK)
