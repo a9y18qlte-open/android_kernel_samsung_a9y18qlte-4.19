@@ -7950,6 +7950,42 @@ static ssize_t prox_power_off_store(struct device *dev,
 	return count;
 }
 
+static ssize_t dt2w_enable_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct sec_cmd_data *sec = dev_get_drvdata(dev);
+	struct bt532_ts_info *info = container_of(sec, struct bt532_ts_info, sec);
+
+	return snprintf(buf, SEC_CMD_BUF_SIZE, "%d\n", info->aod_enable ? 1 : 0);
+}
+
+/* Simple 0/1 node for the power HAL's tap-to-wake feature. */
+static ssize_t dt2w_enable_store(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	struct sec_cmd_data *sec = dev_get_drvdata(dev);
+	struct bt532_ts_info *info = container_of(sec, struct bt532_ts_info, sec);
+	unsigned long value = 0;
+	int ret;
+
+	ret = kstrtoul(buf, 10, &value);
+	if (ret != 0)
+		return ret;
+
+	if (value) {
+		info->aod_enable = 1;
+		zinitix_bit_set(info->lpm_mode, BIT_EVENT_AOD);
+	} else {
+		info->aod_enable = 0;
+		zinitix_bit_clr(info->lpm_mode, BIT_EVENT_AOD);
+	}
+
+	input_info(true, &info->client->dev, "%s: %lu\n", __func__, value);
+
+	return count;
+}
+
 static DEVICE_ATTR(scrub_pos, S_IRUGO, scrub_position_show, NULL);
 static DEVICE_ATTR(sensitivity_mode, S_IRUGO | S_IWUSR | S_IWGRP, sensitivity_mode_show, sensitivity_mode_store);
 static DEVICE_ATTR(wet_mode, S_IRUGO | S_IWUSR | S_IWGRP, read_wet_mode_show, clear_wet_mode_store);
@@ -7958,6 +7994,7 @@ static DEVICE_ATTR(multi_count, S_IRUGO | S_IWUSR | S_IWGRP, read_multi_count_sh
 static DEVICE_ATTR(module_id, S_IRUGO, read_module_id_show, NULL);
 static DEVICE_ATTR(ta_mode, S_IWUSR | S_IWGRP, NULL, set_ta_mode_store);
 static DEVICE_ATTR(prox_power_off, S_IRUGO | S_IWUSR | S_IWGRP, prox_power_off_show, prox_power_off_store);
+static DEVICE_ATTR(dt2w_enable, S_IRUGO | S_IWUSR | S_IWGRP, dt2w_enable_show, dt2w_enable_store);
 
 static struct attribute *touchscreen_attributes[] = {
 	&dev_attr_scrub_pos.attr,
@@ -7968,6 +8005,7 @@ static struct attribute *touchscreen_attributes[] = {
 	&dev_attr_module_id.attr,
 	&dev_attr_ta_mode.attr,
 	&dev_attr_prox_power_off.attr,
+	&dev_attr_dt2w_enable.attr,
 	NULL,
 };
 
@@ -9183,7 +9221,7 @@ static int bt532_ts_fb_notifier_cb(struct notifier_block *nb,
 
 	if (event == FB_EARLY_EVENT_BLANK && blank == FB_BLANK_UNBLANK)
 		bt532_ts_set_enabled(info, true);
-	else if (event == FB_EVENT_BLANK && blank == FB_BLANK_POWERDOWN)
+	else if (event == FB_EVENT_BLANK && blank != FB_BLANK_UNBLANK)
 		bt532_ts_set_enabled(info, false);
 
 	return NOTIFY_OK;
