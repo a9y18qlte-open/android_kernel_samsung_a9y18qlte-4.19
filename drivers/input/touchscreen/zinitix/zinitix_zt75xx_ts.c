@@ -36,6 +36,7 @@
 
 #include <linux/i2c/zinitix_bt532_ts.h>
 #include <linux/input/mt.h>
+#include <linux/fb.h>
 #if defined(CONFIG_SEC_SYSFS)
 #include <linux/sec_sysfs.h>
 #elif defined(CONFIG_DRV_SAMSUNG)
@@ -741,6 +742,11 @@ struct bt532_ts_info {
 	long prox_power_off;
 
 	struct sec_tclm_data *tdata;
+
+	/* Suspend/resume the panel with the display (double tap to wake) */
+	struct notifier_block fb_notif;
+	/* AOD (double tap) area as w, h, x, y; zero means the whole panel */
+	u16 aod_rect[4];
 };
 /* Dummy touchkey code */
 #define KEY_DUMMY_HOME1	249
@@ -3280,6 +3286,20 @@ static void bt532_ts_close(struct input_dev *dev)
 				(info->lpm_mode & (1 << BIT_EVENT_SINGLE_TAP)) ? 1 : 0);
 
 		write_reg(info->client, 0x0A, 0x0A);
+		if (info->aod_enable) {
+			/*
+			 * mini_init_touch() clears the AOD area on every re-init,
+			 * so program it here. Without an explicit area, use the
+			 * whole panel so a double tap anywhere wakes the device.
+			 */
+			u16 w = info->aod_rect[0] ? info->aod_rect[0] : info->pdata->x_resolution;
+			u16 h = info->aod_rect[1] ? info->aod_rect[1] : info->pdata->y_resolution;
+
+			write_reg(info->client, ZT75XX_SET_AOD_W_REG, w);
+			write_reg(info->client, ZT75XX_SET_AOD_H_REG, h);
+			write_reg(info->client, ZT75XX_SET_AOD_X_REG, info->aod_rect[2]);
+			write_reg(info->client, ZT75XX_SET_AOD_Y_REG, info->aod_rect[3]);
+		}
 		if (write_reg(info->client, ZT75XX_LPM_MODE_REG, info->lpm_mode) != I2C_SUCCESS)
 			input_info(true, &misc_info->client->dev, "%s, fail lpm mode set\n", __func__);
 
@@ -7462,6 +7482,11 @@ static void set_aod_rect(void *device_data)
 			__func__, sec->cmd_param[0], sec->cmd_param[1],
 			sec->cmd_param[2], sec->cmd_param[3]);
 
+	info->aod_rect[0] = (u16)sec->cmd_param[0];
+	info->aod_rect[1] = (u16)sec->cmd_param[1];
+	info->aod_rect[2] = (u16)sec->cmd_param[2];
+	info->aod_rect[3] = (u16)sec->cmd_param[3];
+
 	write_reg(info->client, 0x0A, 0x0A);
 	write_reg(info->client, ZT75XX_SET_AOD_W_REG, (u16)sec->cmd_param[0]);
 	write_reg(info->client, ZT75XX_SET_AOD_H_REG, (u16)sec->cmd_param[1]);
@@ -9117,6 +9142,53 @@ static void zt_read_info_work(struct work_struct *work)
 	mutex_unlock(&info->modechange);
 }
 
+/*
+ * Nothing in the LineageOS framework closes the input device when the
+ * display turns off (Samsung's framework writes inputX/enabled), so the
+ * panel never entered LPM and the AOD double tap could not wake the device.
+ * Follow the display instead, mirroring input_disable_device() and
+ * input_enable_device() so the "enabled" sysfs node stays consistent.
+ */
+static void bt532_ts_set_enabled(struct bt532_ts_info *info, bool enable)
+{
+	struct input_dev *dev = info->input_dev;
+
+	mutex_lock(&dev->mutex);
+	if (enable && dev->disabled) {
+		if (dev->users_private && dev->open)
+			dev->open(dev);
+		dev->users = dev->users_private;
+		dev->disabled = false;
+	} else if (!enable && !dev->disabled) {
+		dev->disabled = true;
+		if (dev->users && dev->close)
+			dev->close(dev);
+		dev->users = 0;
+	}
+	mutex_unlock(&dev->mutex);
+}
+
+static int bt532_ts_fb_notifier_cb(struct notifier_block *nb,
+		unsigned long event, void *data)
+{
+	struct bt532_ts_info *info = container_of(nb, struct bt532_ts_info, fb_notif);
+	struct fb_event *evdata = data;
+	int blank;
+
+	/* only the primary panel */
+	if (!evdata || !evdata->data || !evdata->info || evdata->info->node != 0)
+		return NOTIFY_DONE;
+
+	blank = *(int *)evdata->data;
+
+	if (event == FB_EARLY_EVENT_BLANK && blank == FB_BLANK_UNBLANK)
+		bt532_ts_set_enabled(info, true);
+	else if (event == FB_EVENT_BLANK && blank == FB_BLANK_POWERDOWN)
+		bt532_ts_set_enabled(info, false);
+
+	return NOTIFY_OK;
+}
+
 static int bt532_ts_probe(struct i2c_client *client,
 		const struct i2c_device_id *i2c_id)
 {
@@ -9434,6 +9506,10 @@ static int bt532_ts_probe(struct i2c_client *client,
 #endif
 
 	schedule_delayed_work(&info->work_read_info, msecs_to_jiffies(5000));
+
+	info->fb_notif.notifier_call = bt532_ts_fb_notifier_cb;
+	if (fb_register_client(&info->fb_notif))
+		input_err(true, &client->dev, "%s: failed to register fb notifier\n", __func__);
 #if defined(CONFIG_TOUCHSCREEN_DUMP_MODE)
 	dump_callbacks.inform_dump = dump_tsp_log;
 	INIT_DELAYED_WORK(&info->ghost_check, bt532_check_rawdata);
@@ -9491,6 +9567,8 @@ static int bt532_ts_remove(struct i2c_client *client)
 {
 	struct bt532_ts_info *info = i2c_get_clientdata(client);
 	struct bt532_ts_platform_data *pdata = info->pdata;
+
+	fb_unregister_client(&info->fb_notif);
 
 	disable_irq(info->irq);
 	down(&info->work_lock);
