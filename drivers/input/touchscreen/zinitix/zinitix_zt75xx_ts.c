@@ -1610,9 +1610,9 @@ static bool ts_read_coord(struct bt532_ts_info *info)
 			if (read_data(info->client, ZT75XX_GET_AOD_Y_REG, (u8 *)&info->scrub_y, 2) < 0)
 				input_info(true, &client->dev, "aod_y_reg read fail\n");
 
-			input_report_key(info->input_dev, KEY_BLACK_UI_GESTURE, 1);
+			input_report_key(info->input_dev, KEY_WAKEUP, 1);
 			input_sync(info->input_dev);
-			input_report_key(info->input_dev, KEY_BLACK_UI_GESTURE, 0);
+			input_report_key(info->input_dev, KEY_WAKEUP, 0);
 			input_sync(info->input_dev);
 		} else if (zinitix_bit_test(lpm_mode_reg.data, BIT_EVENT_SINGLE_TAP)) {
 			input_info(true, &client->dev, "%s: single tab\n", __func__);
@@ -9420,6 +9420,8 @@ static int bt532_ts_probe(struct i2c_client *client,
 
 	if(pdata->support_lpm_mode){
 		set_bit(KEY_BLACK_UI_GESTURE, info->input_dev->keybit);
+		/* AOD double tap reports KEY_WAKEUP so AOSP wakes on it */
+		set_bit(KEY_WAKEUP, info->input_dev->keybit);
 	}
 
 	input_set_abs_params(info->input_dev, ABS_MT_POSITION_X,
