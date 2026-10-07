@@ -109,7 +109,7 @@ DEFINE_PER_CPU(enum sec_debug_upload_cause_t, sec_debug_upload_cause);
 static long *g_allocated_phys_mem;
 static long *g_allocated_virt_mem;
 
-static int sec_alloc_virtual_mem(const char *val, struct kernel_param *kp)
+static int sec_alloc_virtual_mem(const char *val, const struct kernel_param *kp)
 {
 	long *mem;
 	char *str = (char *) val;
@@ -136,7 +136,7 @@ static int sec_alloc_virtual_mem(const char *val, struct kernel_param *kp)
 }
 module_param_call(alloc_virtual_mem, sec_alloc_virtual_mem, NULL, NULL, 0644);
 
-static int sec_free_virtual_mem(const char *val, struct kernel_param *kp)
+static int sec_free_virtual_mem(const char *val, const struct kernel_param *kp)
 {
 	long *mem;
 	char *str = (char *) val;
@@ -174,7 +174,7 @@ static int sec_free_virtual_mem(const char *val, struct kernel_param *kp)
 }
 module_param_call(free_virtual_mem, sec_free_virtual_mem, NULL, NULL, 0644);
 
-static int sec_alloc_physical_mem(const char *val, struct kernel_param *kp)
+static int sec_alloc_physical_mem(const char *val, const struct kernel_param *kp)
 {
 	long *mem;
 	char *str = (char *) val;
@@ -201,7 +201,7 @@ static int sec_alloc_physical_mem(const char *val, struct kernel_param *kp)
 }
 module_param_call(alloc_physical_mem, sec_alloc_physical_mem, NULL, NULL, 0644);
 
-static int sec_free_physical_mem(const char *val, struct kernel_param *kp)
+static int sec_free_physical_mem(const char *val, const struct kernel_param *kp)
 {
 	long *mem;
 	char *str = (char *) val;
@@ -239,7 +239,7 @@ static int sec_free_physical_mem(const char *val, struct kernel_param *kp)
 }
 module_param_call(free_physical_mem, sec_free_physical_mem, NULL, NULL, 0644);
 
-static int dbg_set_cpu_affinity(const char *val, struct kernel_param *kp)
+static int dbg_set_cpu_affinity(const char *val, const struct kernel_param *kp)
 {
 	char *endptr;
 	pid_t pid;
