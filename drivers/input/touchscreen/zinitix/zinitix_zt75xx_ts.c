@@ -9213,6 +9213,10 @@ static int bt532_ts_fb_notifier_cb(struct notifier_block *nb,
 	struct fb_event *evdata = data;
 	int blank;
 
+	/* only process blank events */
+	if (event != FB_EARLY_EVENT_BLANK && event != FB_EVENT_BLANK)
+		return NOTIFY_DONE;
+
 	/* only the primary panel */
 	if (!evdata || !evdata->data || !evdata->info || evdata->info->node != 0)
 		return NOTIFY_DONE;
