@@ -1042,6 +1042,16 @@ long pn547_dev_ioctl(struct file *filp,
 			   unsigned int cmd, unsigned long arg)
 {
 	/*struct pn547_dev *pn547_dev = filp->private_data;*/
+
+	/*
+	 * The open source NXP HAL encodes the write ioctls with an unsigned
+	 * int argument, Samsung's with a long one. The argument is passed by
+	 * value either way, so take both.
+	 */
+	if (_IOC_TYPE(cmd) == PN547_MAGIC && _IOC_DIR(cmd) == _IOC_WRITE &&
+	    _IOC_SIZE(cmd) == sizeof(unsigned int))
+		cmd = _IOW(PN547_MAGIC, _IOC_NR(cmd), long);
+
 #ifdef CONFIG_NFC_PN547_ESE_SUPPORT
 	enum p61_access_state current_state;
 	int ret = 0;
