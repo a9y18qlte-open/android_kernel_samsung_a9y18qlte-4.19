@@ -15,20 +15,23 @@
 /dts-v1/;
 
 #include "../qcom/sdm660.dtsi"
-#include "../qcom/sdm660-mtp.dtsi"
+#include "sdm660-sec-a9y18qlte-mtp.dtsi"
 #include "../qcom/msm-pm660a.dtsi"
 
 #include "sdm660-sec-common.dtsi"
-#include "sdm660-sec-a9y18qlte-audio.dtsi"
+/* TODO: audio DT, port together with the techpack audio drivers */
+/* #include "sdm660-sec-a9y18qlte-audio.dtsi" */
 #include "sdm660-sec-a9y18qlte-eur-r06.dtsi"
 #include "sdm660-sec-a9y18qlte-eur-pinctrl-r06.dtsi"
 #include "sdm660-sec-a9y18qlte-display-r01.dtsi"
 #include "sdm660-sec-a9y18qlte-battery-common.dtsi"
 #include "sdm660-sec-a9y18qlte-muic-common.dtsi"
+#include "sdm660-sec-a9y18qlte-pmic-gpio.dtsi"
 #include "sdm660-sec-a9y18qlte-eur-fingerprint-sensor_01.dtsi"
-#include "sdm660-camera-sensor-a9y18qlte_eur-r01.dtsi"
+/* TODO: camera DT, port together with the camera_v2 changes */
+/* #include "sdm660-camera-sensor-a9y18qlte_eur-r01.dtsi" */
 #include "sdm660-sec-a9y18qlte-nfc-eur-r03.dtsi"
-#include "../../../../drivers/leds/tuning/a9y18qlte_led_tuning-r00.dtsi"
+#include "a9y18qlte_led_tuning-r00.dtsi"
 
 / {
 	model = "Samsung A9Y18QLTE EUR PROJECT Rev06 (board-id,06)";

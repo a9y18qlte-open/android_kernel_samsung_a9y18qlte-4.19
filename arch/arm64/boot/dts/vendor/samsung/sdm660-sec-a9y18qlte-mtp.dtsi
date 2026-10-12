@@ -1,0 +1,210 @@
+/*
+ * a9y18qlte copy of qcom/sdm660-mtp.dtsi.
+ * Changes, following Samsung's 4.4 sdm660-mtp.dtsi:
+ *  - sdm660-camera-sensor-mtp.dtsi is not included (Samsung camera DT instead)
+ *  - no pm660 GPIO 4/11 states (see sdm660-sec-a9y18qlte-pmic-gpio.dtsi)
+ *  - no NQ NFC node (PN553 on pn547 driver) and no SMB1351 parallel charger
+ *  - no pm660 FG battery data (the SM5705 is the fuel gauge)
+ */
+
+&uartblsp1dm1 {
+	status = "ok";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart_console_active>;
+};
+
+&ufsphy1 {
+	vdda-phy-supply = <&pm660l_l1>;
+	vdda-pll-supply = <&pm660_l10>;
+	vdda-phy-max-microamp = <51400>;
+	vdda-pll-max-microamp = <14200>;
+	status = "ok";
+};
+
+&ufs1 {
+	vdd-hba-supply = <&gdsc_ufs>;
+	vdd-hba-fixed-regulator;
+	vcc-supply = <&pm660l_l4>;
+	vccq2-supply = <&pm660_l8>;
+	vcc-max-microamp = <500000>;
+	vccq2-max-microamp = <600000>;
+	qcom,vddp-ref-clk-supply = <&pm660_l1>;
+	qcom,vddp-ref-clk-max-microamp = <100>;
+
+	status = "ok";
+};
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&mdss_dsi {
+	hw-config = "split_dsi";
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_dual_nt35597_truly_video>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+	qcom,platform-reset-gpio = <&tlmm 53 0>;
+	qcom,platform-te-gpio = <&tlmm 59 0>;
+};
+
+&mdss_dsi1 {
+	qcom,dsi-pref-prim-pan = <&dsi_dual_nt35597_truly_video>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+	qcom,platform-reset-gpio = <&tlmm 53 0>;
+	qcom,platform-te-gpio = <&tlmm 59 0>;
+};
+
+&mdss_dp_ctrl {
+	pinctrl-names = "mdss_dp_active", "mdss_dp_sleep";
+	pinctrl-0 = <&mdss_dp_aux_active &mdss_dp_usbplug_cc_active>;
+	pinctrl-1 = <&mdss_dp_aux_suspend &mdss_dp_usbplug_cc_suspend>;
+	qcom,aux-en-gpio = <&tlmm 55 0>;
+	qcom,aux-sel-gpio = <&tlmm 56 0>;
+	qcom,usbplug-cc-gpio = <&tlmm 58 0>;
+};
+
+&pm660l_wled {
+	qcom,string-cfg= <6>;
+	status = "ok";
+};
+
+&pm660l_lcdb {
+	status = "ok";
+};
+
+&dsi_dual_nt35597_truly_video {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-dsi-mode-sel-gpio-state = "dual_port";
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&dsi_dual_nt35597_truly_cmd {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-dsi-mode-sel-gpio-state = "dual_port";
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&dsi_dual_sharp_video {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&dsi_nt35597_truly_dsc_video {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&dsi_nt35597_truly_dsc_cmd {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&dsi_nt35695b_truly_fhd_video {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&dsi_nt35695b_truly_fhd_cmd {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&dsi_rm67195_amoled_fhd_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb_amoled>;
+};
+
+&dsi_lgd_incell_sw49106_fhd_video {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&sdhc_1 {
+	/* device core power supply */
+	vdd-supply = <&pm660l_l4>;
+	qcom,vdd-voltage-level = <2950000 2950000>;
+	qcom,vdd-current-level = <200 570000>;
+
+	/* device communication power supply */
+	vdd-io-supply = <&pm660_l8>;
+	qcom,vdd-io-always-on;
+	qcom,vdd-io-lpm-sup;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <200 325000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc1_clk_on &sdc1_cmd_on &sdc1_data_on &sdc1_rclk_on>;
+	pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_off &sdc1_data_off &sdc1_rclk_off>;
+
+	status = "ok";
+};
+
+&sdhc_2 {
+	/* device core power supply */
+	vdd-supply = <&pm660l_l5>;
+	qcom,vdd-voltage-level = <2950000 2950000>;
+	qcom,vdd-current-level = <15000 800000>;
+
+	/* device communication power supply */
+	vdd-io-supply = <&pm660l_l2>;
+	qcom,vdd-io-voltage-level = <1800000 2950000>;
+	qcom,vdd-io-current-level = <200 22000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on &sdc2_cd_on>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off &sdc2_cd_off>;
+
+	#address-cells = <0>;
+	interrupt-parent = <&sdhc_2>;
+	interrupts = <GIC_SPI 1 IRQ_TYPE_EDGE_FALLING>;
+	#interrupt-cells = <1>;
+	interrupt-map-mask = <0xffffffff>;
+	interrupt-map = <0 &intc 0 0 125 IRQ_TYPE_LEVEL_HIGH
+			1 &intc 0 0 221 IRQ_TYPE_LEVEL_HIGH
+			2 &tlmm 54 IRQ_TYPE_LEVEL_HIGH>;
+	interrupt-names = "hc_irq", "pwr_irq", "status_irq";
+	cd-gpios = <&tlmm 54 0x1>;
+
+	status = "ok";
+};
+
+&soc {
+	qcom,msm-ssc-sensors {
+		compatible = "qcom,msm-ssc-sensors";
+	};
+};
+
+&mem_client_3_size {
+	qcom,peripheral-size = <0xf00000>;
+};
+
+
+/*
+ * USB attach comes from the S2MM005 CCIC / SM5705 MUIC through Samsung's
+ * usb_notify, not from the pm660 PD PHY. Until those are ported, run
+ * without extcon: dwc3-msm then starts in peripheral mode at probe.
+ */
+&usb3 {
+	/delete-property/ extcon;
+};

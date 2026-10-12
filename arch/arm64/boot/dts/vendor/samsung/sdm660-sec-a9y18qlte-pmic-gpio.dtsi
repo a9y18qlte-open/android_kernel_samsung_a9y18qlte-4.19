@@ -1,0 +1,114 @@
+/*
+ * PMIC GPIO setup for a9y18qlte.
+ *
+ * The 4.4 kernel configured these with the legacy qpnp-pin binding
+ * (gpio@cX00 { qcom,mode ... }). On 4.19 the PMIC GPIOs are driven by
+ * pinctrl-spmi-gpio, so the same settings are expressed as pinctrl
+ * states and hogged by the PMIC pinctrl devices themselves.
+ *
+ * qpnp-pin -> pinconf: mode 0/1 = input-enable/output-*, pull 0 = 30uA
+ * pull-up, pull 4 = pull-down, pull 5 = no pull, vin-sel = power-source,
+ * src-sel 0 = "normal", out-strength 1 = low, master-en 0 = high-Z.
+ */
+
+#include <dt-bindings/pinctrl/qcom,pmic-gpio.h>
+
+&pm660_gpios {
+	pinctrl-names = "default";
+	pinctrl-0 = <&a9_pm660_gpio_default>;
+
+	a9_pm660_gpio_default: a9_pm660_gpio_default {
+		/* GPIO 3, 6, 9, 12 (NC, WIFI_THM): disabled */
+		nc {
+			pins = "gpio3", "gpio6", "gpio9", "gpio12";
+			function = "normal";
+			bias-high-impedance;
+		};
+
+		/* GPIO 4 (NFC_CLK_REQ) */
+		nfc_clk_req {
+			pins = "gpio4";
+			function = "normal";
+			input-enable;
+			power-source = <1>;
+		};
+
+		/* GPIO 11: output low, no pull */
+		gpio11 {
+			pins = "gpio11";
+			function = "normal";
+			output-low;
+			bias-disable;
+			power-source = <0>;
+			qcom,drive-strength = <PMIC_GPIO_STRENGTH_LOW>;
+		};
+
+		/* GPIO 13 (HALL IC) */
+		hall {
+			pins = "gpio13";
+			function = "normal";
+			input-enable;
+			bias-disable;
+			power-source = <0>;
+		};
+	};
+};
+
+&pm660l_gpios {
+	pinctrl-names = "default";
+	pinctrl-0 = <&a9_pm660l_gpio_default>;
+
+	a9_pm660l_gpio_default: a9_pm660l_gpio_default {
+		/* GPIO 3 (FG_ERR) */
+		fg_err {
+			pins = "gpio3";
+			function = "normal";
+			input-enable;
+			bias-pull-down;
+			power-source = <0>;
+		};
+
+		/* GPIO 4: output low, no pull */
+		gpio4 {
+			pins = "gpio4";
+			function = "normal";
+			output-low;
+			bias-disable;
+			power-source = <0>;
+		};
+
+		/* GPIO 5 (grip int) */
+		grip_int {
+			pins = "gpio5";
+			function = "normal";
+			input-enable;
+			bias-disable;
+			power-source = <0>;
+		};
+
+		/* GPIO 6 (NC) */
+		nc {
+			pins = "gpio6";
+			function = "normal";
+			bias-high-impedance;
+		};
+
+		/* GPIO 7 (VOL_UP), MV pad: VIN1 = 1.8V */
+		vol_up {
+			pins = "gpio7";
+			function = "normal";
+			input-enable;
+			bias-pull-up = <PMIC_GPIO_PULL_UP_30>;
+			power-source = <1>;
+		};
+
+		/* GPIO 8 (BIXBY key) */
+		bixby {
+			pins = "gpio8";
+			function = "normal";
+			input-enable;
+			bias-pull-up = <PMIC_GPIO_PULL_UP_30>;
+			power-source = <0>;
+		};
+	};
+};

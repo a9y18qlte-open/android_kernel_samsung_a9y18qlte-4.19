@@ -50,7 +50,7 @@
 			i2c_node = <&i2c_6>;
 			pn547,nfc_pm_clk;
 			qcom,clk-src = "BBCLK3";
-			clocks = <&clock_rpmcc RPM_LN_BB_CLK3_PIN>;
+			clocks = <&clock_rpmcc RPM_SMD_LN_BB_CLK3_PIN>;
 			clock-names = "rf_clk";
 		};
 	};

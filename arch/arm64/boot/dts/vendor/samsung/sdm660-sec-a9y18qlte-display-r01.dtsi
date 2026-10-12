@@ -10,8 +10,8 @@
  * GNU General Public License for more details.
  */
 
-#include "../../../../drivers/video/fbdev/msm/samsung/S6E3FA7_AMS628RF01/dsi_panel_S6E3FA7_AMS628RF01_fhd_octa_cmd.dtsi"
-#include "../../../../drivers/video/fbdev/msm/samsung/PBA_BOOTING/dsi_panel_PBA_BOOTING_fhd_video.dtsi"
+#include "dsi_panel_S6E3FA7_AMS628RF01_fhd_octa_cmd.dtsi"
+#include "dsi_panel_PBA_BOOTING_fhd_video.dtsi"
 
 /*
  * SOC Setting (TLMM Pin Control & SPI Setting)
@@ -19,6 +19,10 @@
 
 &soc {
 	tlmm: pinctrl@03000000 {
+		/* Samsung panel pin states below replace the qcom ones */
+		/delete-node/ pmx_mdss;
+		/delete-node/ pmx_mdss_te;
+
 		mdss_dsi_active: mdss_dsi_active {
 			mux {
 				pins = "gpio53"; /* rst */
@@ -96,22 +100,6 @@
 		};
 	};
 };
-
-&spmi_bus {
-	qcom,pm660l@2 {
-		pm660l_gpios: gpios {
-			gpio@c200 {			/* gpio 3, FG_ERR */
-				qcom,mode = <0>;
-				qcom,pull = <4>;
-				qcom,vin-sel = <0>;
-				qcom,src-sel = <0>;
-				qcom,out-strength = <1>;
-				status = "okay";
-			};
-		};
-	};
-};
-
 
 &soc {
 	dsi_panel_pwr_supply_samsung:
