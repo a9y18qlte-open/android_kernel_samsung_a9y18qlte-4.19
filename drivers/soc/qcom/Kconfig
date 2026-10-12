@@ -616,6 +616,15 @@ config QCOM_INITIAL_LOGBUF
 	  bootup.It can help in debugging issues which are manifestation of
 	  failure during initial bootup.
 
+config SEC_BOOT_COOKIES
+	bool "Samsung boot cookies (sec_debug stand-in)"
+	depends on SEC_A9Y18QLTE_PROJECT
+	help
+	  Mark the boot as normal in the IMEM restart reason and upload
+	  cause, as Samsung's sec_debug does at debug level low, so the
+	  bootloader doesn't treat the next reset as abnormal and retrain
+	  DDR (which wipes RAM and the ramoops logs).
+
 config QCOM_FORCE_WDOG_BITE_ON_PANIC
 	bool "QCOM force watchdog bite"
 	depends on QCOM_WATCHDOG_V2
