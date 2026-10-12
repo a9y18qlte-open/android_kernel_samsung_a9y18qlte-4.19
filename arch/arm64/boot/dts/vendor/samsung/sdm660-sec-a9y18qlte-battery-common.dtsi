@@ -77,6 +77,16 @@
 	/delete-node/qcom,bcl;
 };
 
+/* The pm660 FG/BCL is unused (SM5705 fuel gauge), drop the BCL thermal zones */
+&thermal_zones {
+	/delete-node/ ibat-high;
+	/delete-node/ ibat-vhigh;
+	/delete-node/ vbat_adc;
+	/delete-node/ vbat_low;
+	/delete-node/ vbat_too_low;
+	/delete-node/ soc;
+};
+
 /{
 	battery {
 		status = "okay";
