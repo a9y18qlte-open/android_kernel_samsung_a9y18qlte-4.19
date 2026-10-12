@@ -154,3 +154,19 @@ config PSTORE_RAM
 	  "ramoops.ko".
 
 	  For more information, see Documentation/admin-guide/ramoops.rst.
+
+config PSTORE_RAM_EARLY
+	bool "Early boot console into the ramoops console zone"
+	depends on PSTORE_RAM=y && ARM64
+	select FONT_SUPPORT
+	select FONT_8x16
+	help
+	  Bring-up aid. With ramoops_early=<phys>,<size> on the command
+	  line, printk output is written into a persistent_ram buffer at
+	  <phys> from early_param time on, so a kernel that dies before the
+	  ramoops driver probes still leaves a console-ramoops log for the
+	  next boot. Point it at the ramoops console zone.
+
+	  With ramoops_early_fb=<phys>,<width>,<height>,<bytes per pixel>,<stride>
+	  the text is also drawn into the framebuffer the bootloader left
+	  scanning out (continuous splash).
