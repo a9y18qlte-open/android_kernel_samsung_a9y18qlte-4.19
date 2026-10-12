@@ -240,6 +240,18 @@ config ARCH_SDM660
 	  This enables support for the SDM660 chipset. If you do not
 	  wish to build a kernel that runs on this chipset, say 'N' here.
 
+config SEC_A9Y18QLTE_PROJECT
+	bool "Samsung A9Y18 Triple Project"
+	depends on ARCH_SDM660
+	help
+	  Support for Samsung A9Y18 Triple Project
+
+config MACH_A9Y18QLTE_EUR
+	bool "Samsung A9Y18 EUR"
+	depends on SEC_A9Y18QLTE_PROJECT
+	help
+	  Support for Samsung A9Y18 EUR device.
+
 config ARCH_REALTEK
 	bool "Realtek Platforms"
 	help
