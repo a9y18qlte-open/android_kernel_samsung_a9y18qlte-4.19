@@ -208,3 +208,12 @@
 &usb3 {
 	/delete-property/ extcon;
 };
+
+/*
+ * qcom msm-audio.dtsi enables spi_7 (BLSP2 QUP3, 0xc1b7000) for the WCD SPI.
+ * On the A9 that QUP is i2c_7 (TFA9872 amp); Samsung's audio DT disables
+ * spi_7 through sdm660-internal-codec.dtsi. Probing both froze the bus.
+ */
+&spi_7 {
+	status = "disabled";
+};
