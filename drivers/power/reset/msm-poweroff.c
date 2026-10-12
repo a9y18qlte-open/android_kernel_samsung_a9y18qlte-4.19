@@ -475,16 +475,20 @@ static void msm_restart_prepare(const char *cmd)
 	set_dload_mode(download_mode &&
 			(in_panic || restart_mode == RESTART_DLOAD));
 
-	if (qpnp_pon_check_hard_reset_stored()) {
-		/* Set warm reset as true when device is in dload mode */
-		if (get_dload_mode() ||
-			((cmd != NULL && cmd[0] != '\0') &&
-			!strcmp(cmd, "edl")))
-			need_warm_reset = true;
-	} else {
-		need_warm_reset = (get_dload_mode() ||
-				(cmd != NULL && cmd[0] != '\0'));
-	}
+	/*
+	 * A warm reset leaves the PMIC power-on reason as it was. After a
+	 * charger power-on it stays "CBL", so the bootloader boots into
+	 * offline charging on every reboot with a charger attached, whatever
+	 * the reboot command. Warm reset only for download mode, across
+	 * panics, and for reboots into a mode the bootloader picks from the
+	 * restart reason, to keep DRAM and the ramoops log in it.
+	 */
+	if (get_dload_mode() || in_panic ||
+	    (cmd != NULL && (!strcmp(cmd, "edl") ||
+			     !strncmp(cmd, "bootloader", 10) ||
+			     !strncmp(cmd, "recovery", 8) ||
+			     !strncmp(cmd, "download", 8))))
+		need_warm_reset = true;
 
 	if (force_warm_reboot)
 		pr_info("Forcing a warm reset of the system\n");
