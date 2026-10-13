@@ -25,6 +25,9 @@
 #include <linux/ftrace.h>
 #include <linux/compiler.h>
 
+#include <linux/sec_debug.h>
+#include <linux/sec_debug_summary.h>
+
 /*
  * These will be re-linked against their real values
  * during the second link stage.
@@ -47,6 +50,36 @@ extern const u8 kallsyms_token_table[] __weak;
 extern const u16 kallsyms_token_index[] __weak;
 
 extern const unsigned long kallsyms_markers[] __weak;
+
+#ifdef CONFIG_SEC_DEBUG_SUMMARY
+void sec_debug_summary_set_kallsyms_info(
+		struct sec_debug_summary_data_apss *apss)
+{
+	/*
+	 * The summary only describes an absolute address table. With
+	 * KALLSYMS_BASE_RELATIVE (always on for arm64 since 4.6) there is
+	 * none, so leave the magic unset: no symbols for the ramdump parser.
+	 */
+	if (IS_ENABLED(CONFIG_KALLSYMS_BASE_RELATIVE))
+		return;
+
+	apss->ksyms.addresses_pa = __pa_symbol(kallsyms_addresses);
+	apss->ksyms.names_pa = __pa_symbol(kallsyms_names);
+	apss->ksyms.num_syms = kallsyms_num_syms;
+	apss->ksyms.token_table_pa = __pa_symbol(kallsyms_token_table);
+	apss->ksyms.token_index_pa = __pa_symbol(kallsyms_token_index);
+	apss->ksyms.markers_pa = __pa_symbol(kallsyms_markers);
+
+	apss->ksyms.sect.sinittext = (uintptr_t)_sinittext;
+	apss->ksyms.sect.einittext = (uintptr_t)_einittext;
+	apss->ksyms.sect.stext = (uintptr_t)_stext;
+	apss->ksyms.sect.etext = (uintptr_t)_etext;
+	apss->ksyms.sect.end = (uintptr_t)_end;
+
+	apss->ksyms.kallsyms_all = IS_ENABLED(CONFIG_KALLSYMS_ALL);
+	apss->ksyms.magic = SEC_DEBUG_SUMMARY_MAGIC1;
+}
+#endif
 
 /*
  * Expand a compressed symbol data into the resulting uncompressed string,
