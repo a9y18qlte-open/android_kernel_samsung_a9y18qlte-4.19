@@ -476,8 +476,8 @@ static int kts1620_parse_dt(struct device *dev,
 	pdata->vdd = devm_regulator_get(dev, "kts,vdd");
 	if (IS_ERR(pdata->vdd)) {
 		pr_err("%s: cannot get kts1620,vdd\n", __func__);
-		ret = -ENOMEM;
-		return ret;
+		/* 4.19: pm660_l13 can come up after us, so let the core retry */
+		return PTR_ERR(pdata->vdd);
 	} else if (!regulator_get_voltage(pdata->vdd)) {
 		ret = regulator_set_voltage(pdata->vdd, 1800000, 1800000);
 		if (ret < 0) {
@@ -920,7 +920,7 @@ static int kts1620_gpio_probe(struct i2c_client *client,
 	gc->free = kts1620_gpio_free;
 	gc->can_sleep = 0;
 	/*Require dev to use the of_gpio api*/
-	gc->dev = &client->dev;
+	gc->parent = &client->dev;
 	gc->base = pdata->gpio_start;
 	gc->ngpio = pdata->ngpio;
 	gc->label = client->name;
@@ -980,7 +980,7 @@ static int kts1620_gpio_probe(struct i2c_client *client,
 		dev_err(&client->dev,
 				"Failed to create device for expander\n");
 		ret = -ENODEV;
-		goto err;
+		goto err_gpiochip;
 	}
 
 	ret = sysfs_create_file(&kts1620_dev->kobj, &dev_attr_expgpio.attr);
@@ -990,19 +990,18 @@ static int kts1620_gpio_probe(struct i2c_client *client,
 		goto err_destroy;
 	}
 
+	/* 4.19: debugfs is optional (DEBUG_FS is off), don't fail the probe */
 	dev->dentry = debugfs_create_dir("expander", NULL);
 	if (IS_ERR_OR_NULL(dev->dentry)) {
 		dev_err(&client->dev,
 				"Failed to create debugfs dir for expander\n");
-		goto err_debug_dir;
-
-	}
-	debugfs_file = debugfs_create_file("gpio", S_IFREG | 0444,
-			dev->dentry, NULL, &expander_operations);
-	if (IS_ERR_OR_NULL(debugfs_file)) {
-		dev_err(&client->dev,
-				"Failed to create debugfs file for gpio\n");
-		goto err_debug_file;
+		dev->dentry = NULL;
+	} else {
+		debugfs_file = debugfs_create_file("gpio", S_IFREG | 0444,
+				dev->dentry, NULL, &expander_operations);
+		if (IS_ERR_OR_NULL(debugfs_file))
+			dev_err(&client->dev,
+					"Failed to create debugfs file for gpio\n");
 	}
 
 	i2c_set_clientdata(client, dev);
@@ -1010,12 +1009,10 @@ static int kts1620_gpio_probe(struct i2c_client *client,
 
 	return 0;
 
-err_debug_file:
-	debugfs_remove_recursive(dev->dentry);
-err_debug_dir:
-	sysfs_remove_file(&kts1620_dev->kobj, &dev_attr_expgpio.attr);
 err_destroy:
 	sec_device_destroy(kts1620_dev->devt);
+err_gpiochip:
+	gpiochip_remove(&dev->gpio_chip);
 err:
 	kts1620_power_ctrl(pdata, POWER_OFF);
 	mutex_destroy(&dev->lock);
