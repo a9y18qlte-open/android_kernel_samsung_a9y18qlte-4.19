@@ -246,4 +246,6 @@ source "drivers/battery_v2/Kconfig"
 
 source "drivers/motor/Kconfig"
 
+source "drivers/fingerprint/Kconfig"
+
 endmenu

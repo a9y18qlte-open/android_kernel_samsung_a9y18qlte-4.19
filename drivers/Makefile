@@ -203,3 +203,6 @@ obj-y				+= debug/
 obj-$(CONFIG_BATTERY_SAMSUNG)	+= battery_v2/
 # Motor
 obj-y				+= motor/
+
+# FINGERPRINT
+obj-$(CONFIG_SENSORS_FINGERPRINT)	+= fingerprint/
