@@ -12,18 +12,10 @@
 
 &spmi_bus {
 	qcom,pm660@0 {
-		pm660_vadc: vadc@3100 {
-			chan@4e { /* AMUX_2 */
-				label = "chg_therm";
-				reg = <0x4e>;
-				qcom,decimation = <0>;
-				qcom,pre-div-channel-scaling = <0>;
-				qcom,calibration-type = "ratiometric";
-				qcom,scale-function = <2>;
-				qcom,hw-settle-time = <2>;
-				qcom,fast-avg-setup = <0>;
-			};
-		};
+		/*
+		 * chg_therm (AMUX_2, 0x4e) is pm660.dtsi's ADC5 emmc_therm channel
+		 * (ADC_AMUX_THM2_PU2, ratiometric); sec-battery uses it by number.
+		 */
 		pm660_pdphy: qcom,usb-pdphy@1700 {
 			status = "disabled";
 		};
@@ -56,12 +48,18 @@
 			>;
 		#address-cells = <1>;
 		#size-cells = <0>;
+		/*
+		 * 4.19 msm pinctrl is strict: the bus pins belong to the i2c-gpio
+		 * controller (which requests them), not to the client below.
+		 */
+		pinctrl-names = "default";
+		pinctrl-0 = <&sm5705_fg_i2c_active>;
 
 		sm5705-fuelgauge@71 {
-			compatible = "sm5705-fuelgauge,i2c";
+			compatible = "sm,sm5705-fuelgauge";	/* was "sm5705-fuelgauge,i2c", see usbpd-s2mm005 */
 			reg = <0x71>;
 			pinctrl-names = "default";
-			pinctrl-0 = <&fuel_irq &sm5705_fg_i2c_active>;
+			pinctrl-0 = <&fuel_irq>;
 			fuelgauge,fuel_int = <&tlmm 42 0>;
 			fuelgauge,fuel_alert_soc = <1>;
 			fuelgauge,capacity_max = <1000>;
@@ -182,6 +180,11 @@
 		battery,recharging_expired_time = <5400>;
 		battery,charging_reset_time = <0>;
 		qcom,sec-battery-vadc = <&pm660_vadc>;
+		/* sec_adc AP channels (4.4: qpnp-vadc temp_adc_channel 0x51 default, THM2_PU2, VBAT_SNS) */
+		io-channels = <&pm660_vadc ADC_AMUX_THM5_PU2>,
+			      <&pm660_vadc ADC_AMUX_THM2_PU2>,
+			      <&pm660_vadc ADC_VBAT_SNS>;
+		io-channel-names = "adc-temp", "adc-chg-temp", "adc-in-bat";
 
 		battery,chg_float_voltage = <4350>;
 
