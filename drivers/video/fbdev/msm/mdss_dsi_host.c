@@ -2637,7 +2637,7 @@ void mdss_dsi_samsung_poc_perf_mode_ctl(struct mdss_dsi_ctrl_pdata *ctrl, int en
 
 			if (ctrl->mdss_util->iommu_ctrl) {
 				rc = ctrl->mdss_util->iommu_ctrl(1);
-				if (IS_ERR_VALUE(rc)) {
+				if (IS_ERR_VALUE((unsigned long) rc)) {
 					pr_err("IOMMU attach failed\n");
 					return ;
 				}

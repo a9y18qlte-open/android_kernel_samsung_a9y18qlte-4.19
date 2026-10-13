@@ -12,6 +12,11 @@ obj-y += ss_ddi_poc_common.o
 obj-$(CONFIG_SAMSUNG_DEBUG_DISPLAY) += dlog.o
 obj-$(CONFIG_DISPLAY_USE_INFO) += ss_dpui_common.o
 
+# sysfs show buffers are sized by (static, never changed) ints and the
+# image dump casts the splash memory to panel-sized array pointers
+CFLAGS_ss_dsi_panel_sysfs.o += -Wno-vla
+CFLAGS_ss_dsi_panel_debug.o += -Wno-vla
+
 # TO SUPPORT SPI INTERFACE
 # obj-y  += ss_ddi_spi_common.o
 

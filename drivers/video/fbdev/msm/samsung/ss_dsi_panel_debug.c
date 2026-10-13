@@ -585,17 +585,7 @@ void mdss_samsung_fence_dump(char *intf, struct sync_fence *fence)
 *
 **************************************************************/
 
-#include "../../../../staging/android/ion/ion_priv.h"
 #include "../../../../staging/android/ion/ion.h"
-
-struct ion_handle {
-	struct kref ref;
-	struct ion_client *client;
-	struct ion_buffer *buffer;
-	struct rb_node node;
-	unsigned int kmap_cnt;
-	int id;
-};
 
 static int WIDTH_COMPRESS_RATIO = 1;
 static int HEIGHT_COMPRESS_RATIO = 1;
@@ -768,7 +758,7 @@ void samsung_image_dump(struct samsung_display_driver_data *vdd)
 #endif
 			if (!IS_ERR_OR_NULL(ion_buffers)) {
 				/* To avoid buffer free */
-				kref_get(&ion_buffers->ref);
+				get_dma_buf(buf->p[0].srcp_dma_buf);
 
 				drain_pos = ion_heap_map_kernel(NULL, ion_buffers);
 
