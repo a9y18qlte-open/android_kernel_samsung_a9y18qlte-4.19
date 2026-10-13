@@ -935,11 +935,15 @@ static void otg_notify_state(struct otg_notify *n,
 		if (enable) {
 			send_external_notify(EXTERNAL_NOTIFY_MDMBLOCK_PRE, 1);
 			/*whilte list start*/
+#if defined(CONFIG_USB_OTG_WHITELIST_FOR_MDM)
 			n->sec_whitelist_enable = 1;
+#endif
 			send_external_notify(EXTERNAL_NOTIFY_MDMBLOCK_POST, 1);
 		} else {
 			/*whilte list end*/
+#if defined(CONFIG_USB_OTG_WHITELIST_FOR_MDM)
 			n->sec_whitelist_enable = 0;
+#endif
 		}
 		goto no_save_event;
 	default:
@@ -1416,6 +1420,7 @@ int get_class_index(int ch9_class_num)
 	return internal_class_index;
 }
 
+#if defined(CONFIG_USB_OTG_WHITELIST_FOR_MDM)
 static bool usb_match_any_interface_for_mdm(struct usb_device *udev,
 				    int *whitelist_array)
 {
@@ -1447,10 +1452,13 @@ static bool usb_match_any_interface_for_mdm(struct usb_device *udev,
 	}
 	return true;
 }
+#endif
 
 int usb_check_whitelist_for_mdm(struct usb_device *dev)
 {
+#if defined(CONFIG_USB_OTG_WHITELIST_FOR_MDM)
 	int *whitelist_array;
+#endif
 	struct otg_notify *o_notify;
 	struct usb_notify *u_notify;
 	/* return 1 if the enumeration will be going . */
@@ -1467,6 +1475,7 @@ int usb_check_whitelist_for_mdm(struct usb_device *dev)
 		return 1;
 	}
 
+#if defined(CONFIG_USB_OTG_WHITELIST_FOR_MDM)
 	if (o_notify->sec_whitelist_enable) {
 		whitelist_array = u_notify->udev.whitelist_array_for_mdm;
 		if (usb_match_any_interface_for_mdm(dev, whitelist_array)) {
@@ -1475,6 +1484,7 @@ int usb_check_whitelist_for_mdm(struct usb_device *dev)
 		}
 		return 0;
 	}
+#endif
 	return 1;
 }
 

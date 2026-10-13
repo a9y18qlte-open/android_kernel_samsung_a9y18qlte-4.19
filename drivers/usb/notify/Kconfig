@@ -4,7 +4,7 @@
 
 comment "USB Notify features"
 config USB_HOST_NOTIFY
-	boolean "USB Host notify Driver"
+	bool "USB Host notify Driver"
 	depends on USB_NOTIFY_LAYER
 	help
 	  Android framework needs uevents for usb host operation.
@@ -12,7 +12,7 @@ config USB_HOST_NOTIFY
 	  that is used by usb host or otg.
 
 config USB_NOTIFY_LAYER
-	boolean "USB notify layer"
+	bool "USB notify layer"
 	depends on USB
 	help
 	  Added usb notify layer on gadget,host,otg drivers.
@@ -20,20 +20,20 @@ config USB_NOTIFY_LAYER
           and vbus detect irq.
 
 config USB_NOTIFIER
-	boolean "USB notifier"
+	bool "USB notifier"
 	depends on USB_NOTIFY_LAYER
 	help
 	  Added platform driver to call usb notify.
 	  The usb_notifier.c can be fixed for each models.
 
 config USB_DEBUG_DETAILED_LOG
-	boolean "USB detailed log for debugging"
+	bool "USB detailed log for debugging"
 	depends on USB
 	help
 	  Add detailed log for debugging.
 
 config USB_STORAGE_DETECT
-	boolean "USB storage detect function"
+	bool "USB storage detect function"
 	depends on USB && SCSI
 	depends on USB_STORAGE
 	help
@@ -44,7 +44,7 @@ config USB_STORAGE_DETECT
           in this Kconfig to gather samsung feature about usb host.
 
 config USB_HMT_SAMSUNG_INPUT
-	boolean "USB HMT inputs for samsung hmt devices"
+	bool "USB HMT inputs for samsung hmt devices"
 	depends on HID
 	help
 	  Some samsung smart phones support gear vr.
@@ -52,7 +52,7 @@ config USB_HMT_SAMSUNG_INPUT
           This feature enables special hid input codes.
 
 config USB_EXTERNAL_NOTIFY
-	boolean "USB external notify"
+	bool "USB external notify"
 	depends on USB_NOTIFY_LAYER
 	help
 	  Added usb external notify.
@@ -60,14 +60,14 @@ config USB_EXTERNAL_NOTIFY
 	  to muic and charger.
 	  
 config USB_NOTIFY_PROC_LOG
-	boolean "USB proc log"
+	bool "USB proc log"
 	depends on USB_NOTIFY_LAYER
 	help
 	  Added proc usblog.
 	  The USB STATE, The USB MODE, Cable event 
 	  are saved in usblog heap.
 config USB_HW_PARAM
-	boolean "USB H/W Parameter"
+	bool "USB H/W Parameter"
 	depends on USB_NOTIFY_LAYER
 	depends on USB_HOST_NOTIFY
 	help

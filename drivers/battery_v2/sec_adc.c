@@ -14,12 +14,10 @@
 
 #define DEBUG
 
-static struct qpnp_vadc_chip *adc_client;
-
 struct adc_list {
 	const char*	name;
 	struct iio_channel *channel;
-	struct qpnp_vadc_result prev_value;
+	int prev_value;
 	//bool is_used;
 };
 
@@ -38,75 +36,92 @@ static struct adc_list batt_adc_list[SEC_BAT_ADC_CHANNEL_NUM] = {
 	{.name = "adc-slave-chg-temp"},
 	{.name = "adc-usb-temp"},
 };
+/*
+ * 4.19: the pm660 ADC is the IIO ADC5 driver, so the AP channels come from
+ * the battery node's io-channels, named as in batt_adc_list ("adc-temp",
+ * "adc-chg-temp", "adc-in-bat", ...). Raw reads return the same ADC code
+ * qpnp_vadc_read() gave in adc_code, which the DT temperature tables use.
+ */
+static struct iio_channel *sec_bat_get_adc_channel(struct sec_battery_info *battery,
+		int adc_channel)
+{
+	struct adc_list *adc = &batt_adc_list[adc_channel];
+	struct iio_channel *chan;
+
+	if (adc->channel)
+		return adc->channel;
+
+	chan = iio_channel_get(battery->dev, adc->name);
+	if (IS_ERR(chan)) {
+		if (PTR_ERR(chan) != -EPROBE_DEFER && PTR_ERR(chan) != -ENODEV)
+			pr_err("%s: Fail to get %s %ld\n", __func__,
+				adc->name, PTR_ERR(chan));
+		return NULL;
+	}
+	adc->channel = chan;
+
+	return chan;
+}
+
 static void sec_bat_adc_ap_init(struct platform_device *pdev,
 		struct sec_battery_info *battery)
 {
-	adc_client = qpnp_get_vadc(battery->dev, "sec-battery");
+	int i;
 
-	if (IS_ERR(adc_client)) {
-		int rc;
-		rc = PTR_ERR(adc_client);
-		if (rc != -EPROBE_DEFER)
-			pr_err("%s: Fail to get vadc %d\n", __func__, rc);
-	}
+	for (i = 0; i < SEC_BAT_ADC_CHANNEL_NUM; i++)
+		sec_bat_get_adc_channel(battery, i);
 }
 
-static void sec_bat_read_adc(struct qpnp_vadc_chip *vadc, int channel,
-		struct qpnp_vadc_result *result, int adc_channel)
+static int sec_bat_read_adc(struct sec_battery_info *battery, int adc_channel,
+		bool processed)
 {
-	int ret = 0;
+	struct iio_channel *chan = sec_bat_get_adc_channel(battery, adc_channel);
+	int ret = 0, val = 0;
 	int retry_cnt = RETRY_CNT;
 
-	do { 
-		ret = qpnp_vadc_read(vadc, channel, result);
-		retry_cnt--; 
-	} while ((retry_cnt > 0) && ret);
+	if (!chan)
+		return batt_adc_list[adc_channel].prev_value;
 
-	if (retry_cnt <= 0) { 
-		pr_err("%s: Error in ADC(%d) retry_cnt(%d)\n", __func__, adc_channel, retry_cnt); 
-		result->adc_code = batt_adc_list[adc_channel].prev_value.adc_code;
-		result->physical = batt_adc_list[adc_channel].prev_value.physical;
-	} else {
-		batt_adc_list[adc_channel].prev_value.adc_code = result->adc_code;
-		batt_adc_list[adc_channel].prev_value.physical = result->physical;
+	do {
+		if (processed)
+			ret = iio_read_channel_processed(chan, &val);
+		else
+			ret = iio_read_channel_raw(chan, &val);
+		retry_cnt--;
+	} while ((retry_cnt > 0) && ret < 0);
+
+	if (ret < 0) {
+		pr_err("%s: Error in ADC(%d) ret(%d)\n", __func__, adc_channel, ret);
+		return batt_adc_list[adc_channel].prev_value;
 	}
-	pr_debug("%s, channel: 0x%x, adc: %d, physical: %lld\n", __func__, channel, result->adc_code, result->physical);
+	batt_adc_list[adc_channel].prev_value = val;
+	pr_debug("%s, channel: %s, val: %d\n", __func__, batt_adc_list[adc_channel].name, val);
+
+	return val;
 }
 
 static int sec_bat_adc_ap_read(struct sec_battery_info *battery, int channel)
 {
-	struct qpnp_vadc_result results;
 	int data = -1;
 
 	switch (channel)
 	{
 	case SEC_BAT_ADC_CHANNEL_TEMP:
-		sec_bat_read_adc(adc_client, battery->pdata->temp_adc_channel, &results, channel);
-		data = results.adc_code;
+	case SEC_BAT_ADC_CHANNEL_WPC_TEMP:
+		data = sec_bat_read_adc(battery, SEC_BAT_ADC_CHANNEL_TEMP, false);
 		break;
 	case SEC_BAT_ADC_CHANNEL_TEMP_AMBIENT:
 		data = 33000;
 		break;
 	case SEC_BAT_ADC_CHANNEL_BAT_CHECK:
-		sec_bat_read_adc(NULL, LR_MUX2_BAT_ID, &results, channel);
-		pr_debug("BAT_ID physical= %lld, raw = 0x%x\n", results.physical, results.adc_code);
-		data = results.physical;
+		data = sec_bat_read_adc(battery, channel, true);
 		break;
 	case SEC_BAT_ADC_CHANNEL_USB_TEMP:
-		sec_bat_read_adc(adc_client, battery->pdata->usb_temp_adc_channel, &results, channel);
-		data = results.adc_code;
-		break;	
 	case SEC_BAT_ADC_CHANNEL_CHG_TEMP:
-		sec_bat_read_adc(adc_client, VADC_AMUX_THM2_PU2, &results, channel);
-		data = results.adc_code;
-		break;
-	case SEC_BAT_ADC_CHANNEL_WPC_TEMP:
-		sec_bat_read_adc(adc_client, battery->pdata->temp_adc_channel, &results, channel);
-		data = results.adc_code;
+		data = sec_bat_read_adc(battery, channel, false);
 		break;
 	case SEC_BAT_ADC_CHANNEL_INBAT_VOLTAGE:
-		sec_bat_read_adc(adc_client, VBAT_SNS, &results, channel);
-		data = ((int)results.physical)/1000;
+		data = sec_bat_read_adc(battery, channel, true) / 1000;
 		break;
 	default :
 		break;
