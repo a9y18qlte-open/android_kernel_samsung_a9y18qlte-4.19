@@ -28,9 +28,17 @@
 #define MSM_CAM_V4L2_IOCTL_DAEMON_DISABLED \
 	_IOW('V', BASE_VIDIOC_PRIVATE + 35, struct msm_v4l2_event_data)
 
-#define QCAMERA_VNODE_GROUP_ID	MEDIA_ENT_F_IO_V4L
 #define MSM_CAMERA_NAME			"msm_camera"
 #define MSM_CONFIGURATION_NAME	"msm_config"
+
+#ifdef __KERNEL__
+/*
+ * Media entity functions of the camera nodes. Userspace sees the 4.4 ABI
+ * below instead: MEDIA_IOC_ENUM_ENTITIES on the msm_config media device
+ * reports these as type MEDIA_ENT_T_V4L2_SUBDEV/MEDIA_ENT_T_DEVNODE_V4L
+ * with the 4.4 group_id (see media_device_enum_entities()).
+ */
+#define QCAMERA_VNODE_GROUP_ID	MEDIA_ENT_F_IO_V4L
 
 //#define MSM_CAMERA_SUBDEV_BASE         (MEDIA_ENT_F_OLD_SUBDEV_BASE + 1)
 #define MSM_CAMERA_SUBDEV_BASE         (MEDIA_ENT_F_OLD_BASE + 0xF00)
@@ -59,6 +67,34 @@
 #define MSM_CAMERA_SUBDEV_TOF          (MSM_CAMERA_SUBDEV_BASE + 20)
 #define MSM_CAMERA_SUBDEV_LASER_LED    (MSM_CAMERA_SUBDEV_BASE + 21)
 #define MSM_CAMERA_SUBDEV_OTP          (MSM_CAMERA_SUBDEV_BASE + 22)
+#else
+/* 4.4 ABI: media_entity_desc.group_id of the camera nodes */
+#define QCAMERA_VNODE_GROUP_ID	2
+
+#define MSM_CAMERA_SUBDEV_CSIPHY       0
+#define MSM_CAMERA_SUBDEV_CSID         1
+#define MSM_CAMERA_SUBDEV_ISPIF        2
+#define MSM_CAMERA_SUBDEV_VFE          3
+#define MSM_CAMERA_SUBDEV_AXI          4
+#define MSM_CAMERA_SUBDEV_VPE          5
+#define MSM_CAMERA_SUBDEV_SENSOR       6
+#define MSM_CAMERA_SUBDEV_ACTUATOR     7
+#define MSM_CAMERA_SUBDEV_EEPROM       8
+#define MSM_CAMERA_SUBDEV_CPP          9
+#define MSM_CAMERA_SUBDEV_CCI          10
+#define MSM_CAMERA_SUBDEV_LED_FLASH    11
+#define MSM_CAMERA_SUBDEV_STROBE_FLASH 12
+#define MSM_CAMERA_SUBDEV_BUF_MNGR     13
+#define MSM_CAMERA_SUBDEV_SENSOR_INIT  14
+#define MSM_CAMERA_SUBDEV_OIS          15
+#define MSM_CAMERA_SUBDEV_FLASH        16
+#define MSM_CAMERA_SUBDEV_IR_LED       17
+#define MSM_CAMERA_SUBDEV_IR_CUT       18
+#define MSM_CAMERA_SUBDEV_EXT          19
+#define MSM_CAMERA_SUBDEV_TOF          20
+#define MSM_CAMERA_SUBDEV_LASER_LED    21
+#define MSM_CAMERA_SUBDEV_OTP          22
+#endif /* __KERNEL__ */
 #define MSM_MAX_CAMERA_SENSORS  5
 
 /* The below macro is defined to put an upper limit on maximum
