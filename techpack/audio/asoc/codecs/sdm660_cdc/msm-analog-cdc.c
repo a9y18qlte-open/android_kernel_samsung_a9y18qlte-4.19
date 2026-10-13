@@ -2651,8 +2651,17 @@ static int msm_anlg_cdc_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 			snd_soc_component_update_bits(component, micb_int_reg,
 							0x01, 0x01);
 		} else if (strnstr(w->name, external2_text, strlen(w->name))) {
+#ifdef CONFIG_SAMSUNG_JACK
+			if (++sdm660_cdc->micb_2_ref_cnt == 1) {
+				msm_anlg_cdc_configure_cap(component, false,
+							   true);
+				snd_soc_component_update_bits(component,
+						w->reg, 0x80, 0x80);
+			}
+#else
 			msm_anlg_cdc_notifier_call(component,
 					WCD_EVENT_POST_MICBIAS_2_ON);
+#endif /* CONFIG_SAMSUNG_JACK */
 		}
 		break;
 	case SND_SOC_DAPM_POST_PMD:
@@ -2666,12 +2675,21 @@ static int msm_anlg_cdc_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 			snd_soc_component_update_bits(component, micb_int_reg,
 							0x2, 0x0);
 		} else if (strnstr(w->name, external2_text, strlen(w->name))) {
+#ifdef CONFIG_SAMSUNG_JACK
+			if (--sdm660_cdc->micb_2_ref_cnt == 0) {
+				msm_anlg_cdc_configure_cap(component, false,
+							   false);
+				snd_soc_component_update_bits(component,
+						w->reg, 0x80, 0x00);
+			}
+#else
 			/*
 			 * send micbias turn off event to mbhc driver and then
 			 * break, as no need to set MICB_1_EN register.
 			 */
 			msm_anlg_cdc_notifier_call(component,
 					WCD_EVENT_POST_MICBIAS_2_OFF);
+#endif /* CONFIG_SAMSUNG_JACK */
 			break;
 		}
 		if (w->reg == MSM89XX_PMIC_ANALOG_MICB_1_EN)
@@ -2680,6 +2698,44 @@ static int msm_anlg_cdc_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 	}
 	return 0;
 }
+
+#ifdef CONFIG_SAMSUNG_JACK
+static int msm_anlg_cdc_codec_force_enable_micbias(
+				struct snd_soc_dapm_widget *w,
+				struct snd_kcontrol *kcontrol,
+				int event)
+{
+	struct snd_soc_component *component =
+				snd_soc_dapm_to_component(w->dapm);
+	struct msm_asoc_mach_data *pdata =
+		snd_soc_card_get_drvdata(component->card);
+
+	dev_dbg(component->dev, "%s %d\n", __func__, event);
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		if (atomic_inc_return(&pdata->int_mclk0_rsc_ref) >= 1)
+			msm_anlg_cdc_mclk_enable(component, 1, true);
+
+		msm_anlg_cdc_codec_enable_on_demand_supply(w,
+					NULL, event);
+		break;
+	case SND_SOC_DAPM_POST_PMU:
+		msm_anlg_cdc_codec_enable_micbias(w, kcontrol, event);
+
+		if (atomic_dec_return(&pdata->int_mclk0_rsc_ref) == 0)
+			msm_anlg_cdc_mclk_enable(component, 0, true);
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		msm_anlg_cdc_codec_enable_micbias(w, kcontrol, event);
+		msm_anlg_cdc_codec_enable_on_demand_supply(w,
+					NULL, event);
+	default:
+		break;
+	}
+	return 0;
+}
+#endif /* CONFIG_SAMSUNG_JACK */
 
 static void set_compander_mode(void *handle, int val)
 {
@@ -3609,6 +3665,14 @@ static const struct snd_soc_dapm_widget msm_anlg_cdc_dapm_widgets[] = {
 		msm_anlg_cdc_codec_enable_micbias, SND_SOC_DAPM_POST_PMU |
 		SND_SOC_DAPM_POST_PMD),
 
+#ifdef CONFIG_SAMSUNG_JACK
+	SND_SOC_DAPM_MICBIAS_E("MIC BIAS Power External2",
+		MSM89XX_PMIC_ANALOG_MICB_2_EN, ON_DEMAND_MICBIAS, 0,
+		msm_anlg_cdc_codec_force_enable_micbias,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+		SND_SOC_DAPM_POST_PMD),
+#endif /* CONFIG_SAMSUNG_JACK */
+
 	SND_SOC_DAPM_INPUT("AMIC1"),
 	SND_SOC_DAPM_INPUT("AMIC2"),
 	SND_SOC_DAPM_INPUT("AMIC3"),
@@ -4019,6 +4083,9 @@ int msm_anlg_cdc_hs_detect(struct snd_soc_component *component,
 	struct sdm660_cdc_priv *sdm660_cdc_priv =
 		snd_soc_component_get_drvdata(component);
 
+	if (IS_ENABLED(CONFIG_SAMSUNG_JACK))
+		return 0;
+
 	return wcd_mbhc_start(&sdm660_cdc_priv->mbhc, mbhc_cfg);
 }
 EXPORT_SYMBOL(msm_anlg_cdc_hs_detect);
@@ -4027,6 +4094,9 @@ void msm_anlg_cdc_hs_detect_exit(struct snd_soc_component *component)
 {
 	struct sdm660_cdc_priv *sdm660_cdc_priv =
 		snd_soc_component_get_drvdata(component);
+
+	if (IS_ENABLED(CONFIG_SAMSUNG_JACK))
+		return;
 
 	wcd_mbhc_stop(&sdm660_cdc_priv->mbhc);
 }
@@ -4285,6 +4355,13 @@ static int msm_anlg_cdc_soc_probe(struct snd_soc_component *component)
 	atomic_set(&sdm660_cdc->on_demand_list[ON_DEMAND_MICBIAS].ref,
 		   0);
 
+	/*
+	 * Samsung builds this codec without WCD MBHC: sec_jack does jack
+	 * detection. 4.19's techpack always builds MBHC, so skip it here.
+	 */
+	if (IS_ENABLED(CONFIG_SAMSUNG_JACK))
+		goto skip_mbhc;
+
 	sdm660_cdc->fw_data = devm_kzalloc(component->dev,
 					sizeof(*(sdm660_cdc->fw_data)),
 					GFP_KERNEL);
@@ -4302,12 +4379,16 @@ static int msm_anlg_cdc_soc_probe(struct snd_soc_component *component)
 	wcd_mbhc_init(&sdm660_cdc->mbhc, component, &mbhc_cb, &intr_ids,
 		      wcd_mbhc_registers, true);
 
+skip_mbhc:
 	sdm660_cdc->int_mclk0_enabled = false;
 	/*Update speaker boost configuration*/
 	sdm660_cdc->spk_boost_set = spkr_boost_en;
 	pr_debug("%s: speaker boost configured = %d\n",
 			__func__, sdm660_cdc->spk_boost_set);
 
+#ifdef CONFIG_SAMSUNG_JACK
+	sdm660_cdc->micb_2_ref_cnt = 0;
+#endif
 	/* Set initial MICBIAS voltage level */
 	msm_anlg_cdc_set_micb_v(component);
 
@@ -4331,7 +4412,8 @@ static void msm_anlg_cdc_soc_remove(struct snd_soc_component *component)
 	sdm660_cdc_priv->on_demand_list[ON_DEMAND_MICBIAS].supply = NULL;
 	atomic_set(&sdm660_cdc_priv->on_demand_list[ON_DEMAND_MICBIAS].ref,
 		   0);
-	wcd_mbhc_deinit(&sdm660_cdc_priv->mbhc);
+	if (!IS_ENABLED(CONFIG_SAMSUNG_JACK))
+		wcd_mbhc_deinit(&sdm660_cdc_priv->mbhc);
 }
 
 static int msm_anlg_cdc_enable_static_supplies_to_optimum(
