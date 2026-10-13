@@ -99,6 +99,8 @@
 #include <asm/sections.h>
 #include <asm/cacheflush.h>
 
+#include <linux/sec_bsp.h>
+
 #define CREATE_TRACE_POINTS
 #include <trace/events/initcall.h>
 
@@ -244,6 +246,24 @@ static int __init loglevel(char *str)
 }
 
 early_param("loglevel", loglevel);
+
+unsigned int reboot_fail_in_bl;
+EXPORT_SYMBOL(reboot_fail_in_bl);
+
+static int __init read_rbfib_param(char *str)
+{
+	int temp = 0;
+
+	if (get_option(&str, &temp)) {
+		reboot_fail_in_bl = (unsigned int)temp;
+		pr_info("PON: rbfib=%u\n", reboot_fail_in_bl);
+		return 0;
+	}
+
+	return -EINVAL;
+}
+
+early_param("rbfib", read_rbfib_param);
 
 /* Change NUL term back to "=", to make "param" the whole string. */
 static int __init repair_env_string(char *param, char *val,
@@ -844,6 +864,39 @@ static bool __init_or_module initcall_blacklisted(initcall_t fn)
 #endif
 __setup("initcall_blacklist=", initcall_blacklist);
 
+#ifdef CONFIG_SEC_BSP
+static bool __init_or_module initcall_sec_debug = true;
+
+static int __init_or_module do_one_initcall_sec_debug(initcall_t fn)
+{
+	ktime_t calltime, delta, rettime;
+	unsigned long long duration;
+	int ret;
+	struct device_init_time_entry *entry;
+
+	calltime = ktime_get();
+	ret = fn();
+	rettime = ktime_get();
+	delta = ktime_sub(rettime, calltime);
+	duration = (unsigned long long) ktime_to_ns(delta) >> 10;
+	if (duration > DEVICE_INIT_TIME_100MS) {
+		entry = kmalloc(sizeof(*entry), GFP_KERNEL);
+		if (!entry)
+			return -ENOMEM;
+		entry->buf = kasprintf(GFP_KERNEL, "%pf", fn);
+		if (!entry->buf) {
+			return -ENOMEM;
+		}
+		entry->duration = duration;
+		list_add(&entry->next, &device_init_time_list);
+		printk(KERN_DEBUG "initcall %pF returned %d after %lld usecs\n",
+			 fn, ret, duration);
+	}
+
+	return ret;
+}
+#endif
+
 static __init_or_module void
 trace_initcall_start_cb(void *data, initcall_t fn)
 {
@@ -907,6 +960,12 @@ int __init_or_module do_one_initcall(initcall_t fn)
 		return -EPERM;
 
 	do_trace_initcall_start(fn);
+#ifdef CONFIG_SEC_BSP
+	/* 4.19's initcall_debug hooks the initcall trace events instead */
+	if (!initcall_debug && initcall_sec_debug)
+		ret = do_one_initcall_sec_debug(fn);
+	else
+#endif
 	ret = fn();
 	do_trace_initcall_finish(fn, ret);
 
@@ -976,6 +1035,10 @@ static void __init do_initcall_level(int level)
 	trace_initcall_level(initcall_level_names[level]);
 	for (fn = initcall_levels[level]; fn < initcall_levels[level+1]; fn++)
 		do_one_initcall(initcall_from_entry(fn));
+
+#ifdef CONFIG_SEC_BSP
+	sec_bootstat_add_initcall(initcall_level_names[level]);
+#endif
 }
 
 static void __init do_initcalls(void)
