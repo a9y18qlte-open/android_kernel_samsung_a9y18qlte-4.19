@@ -39,6 +39,7 @@
 #include <linux/debugfs.h>
 #include <linux/pm_qos.h>
 #include <linux/stat.h>
+#include <linux/cred.h>
 #include <linux/cpumask.h>
 
 #define CREATE_TRACE_POINTS
@@ -2579,6 +2580,18 @@ bail:
 	return err;
 }
 
+/*
+ * Older userspace (a9y18qlte's libadsprpc) opens the non-secure node for
+ * the guest OS (cdsprpcd) and static PDs. Allow the callers that could
+ * open the secure node anyway (root, system uid/gid, see ueventd).
+ */
+static bool fastrpc_legacy_trusted(void)
+{
+	return uid_eq(current_euid(), GLOBAL_ROOT_UID) ||
+		uid_eq(current_euid(), KUIDT_INIT(1000)) ||
+		in_egroup_p(KGIDT_INIT(1000));
+}
+
 static int fastrpc_mmap_remove_pdr(struct fastrpc_file *fl);
 static int fastrpc_channel_open(struct fastrpc_file *fl);
 static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl, int locked);
@@ -2620,7 +2633,8 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		remote_arg_t ra[1];
 		int tgid = fl->tgid;
 
-		if (fl->dev_minor == MINOR_NUM_DEV) {
+		if (fl->dev_minor == MINOR_NUM_DEV &&
+				!fastrpc_legacy_trusted()) {
 			err = -ECONNREFUSED;
 			pr_err("adsprpc: %s: untrusted app trying to attach to privileged DSP PD\n",
 				__func__);
@@ -2766,7 +2780,8 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 			unsigned int pageslen;
 		} inbuf;
 
-		if (fl->dev_minor == MINOR_NUM_DEV) {
+		if (fl->dev_minor == MINOR_NUM_DEV &&
+				!fastrpc_legacy_trusted()) {
 			err = -ECONNREFUSED;
 			pr_err("adsprpc: %s: untrusted app trying to attach to audio PD\n",
 				__func__);
@@ -3399,6 +3414,13 @@ static int fastrpc_mmap_remove_pdr(struct fastrpc_file *fl)
 		goto bail;
 	VERIFY(err, cid == fl->cid);
 	if (err)
+		goto bail;
+	/*
+	 * The service locator does not list the static PD on older DSP
+	 * firmware (e.g. a9y18qlte), so no PDR notifier is registered and
+	 * the PD state is never reported: create the PD as 4.4 did.
+	 */
+	if (IS_ERR_OR_NULL(me->channel[cid].spd[session].pdrhandle))
 		goto bail;
 	if (!me->channel[cid].spd[session].ispdup) {
 		err = -ENOTCONN;
@@ -4476,6 +4498,9 @@ static int fastrpc_check_pd_status(struct fastrpc_file *fl, char *sloc_name)
 		&& !strcmp(fl->servloc_name, sloc_name)) {
 		err = fastrpc_get_spd_session(sloc_name, &session, &cid);
 		if (err || cid != fl->cid)
+			goto bail;
+		/* No PDR notifier: see fastrpc_mmap_remove_pdr() */
+		if (IS_ERR_OR_NULL(me->channel[cid].spd[session].pdrhandle))
 			goto bail;
 		if (!me->channel[cid].spd[session].ispdup) {
 			err = -ENOTCONN;
