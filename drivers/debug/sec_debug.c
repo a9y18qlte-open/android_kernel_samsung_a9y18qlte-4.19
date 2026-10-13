@@ -496,6 +496,13 @@ void sec_debug_update_restart_reason(const char *cmd, const int in_panic)
 	return;
 
 __done:
+#ifdef CONFIG_SEC_BOOT_COOKIES
+	/* bring-up: sec_boot_cookies.crash_to_recovery */
+	if (in_panic && sec_boot_cookies_crash_to_recovery()) {
+		pon_rr = PON_RESTART_REASON_RECOVERY;
+		sec_rr = RESTART_REASON_RECOVERY;
+	}
+#endif
 	if (pon_rr != PON_RESTART_REASON_NOT_HANDLE)
 		qpnp_pon_set_restart_reason(pon_rr);
 	if (sec_rr != RESTART_REASON_NOT_HANDLE)

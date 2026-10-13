@@ -142,6 +142,11 @@ extern void sec_debug_update_restart_reason(const char *cmd,
 		const int in_panic);
 extern void sec_debug_set_thermal_upload(void);
 
+#ifdef CONFIG_SEC_BOOT_COOKIES
+/* from 'sec_boot_cookies.c', bring-up only */
+extern bool sec_boot_cookies_crash_to_recovery(void);
+#endif
+
 #ifdef CONFIG_POWER_RESET_QCOM
 /* from 'msm-poweroff.c' */
 extern void set_dload_mode(int on);

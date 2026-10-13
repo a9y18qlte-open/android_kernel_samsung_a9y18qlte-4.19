@@ -1,20 +1,16 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Samsung boot cookies, a stand-in for sec_debug's init until that is ported.
+ * Samsung boot cookies, bring-up aid on top of sec_debug.
  *
- * Samsung's XBL reads the IMEM restart reason and upload cause left by the
- * previous boot. If a running kernel didn't mark itself as booted normally,
- * the next reset is treated as abnormal and XBL retrains DDR, which wipes
- * RAM, ramoops included. Write what sec_debug_init() writes on 4.4 at debug
- * level low: restart reason NORMAL and upload cause INIT. Download mode is
- * kept off through msm_poweroff.download_mode=0.
- *
- * Bring-up aid: with sec_boot_cookies.crash_to_recovery=1 the restart reason
- * is set to recovery instead (IMEM at once, PMIC PON reason once the PON
- * driver is up), so a panic, watchdog reset or forced reset of a test kernel
- * lands in recovery, where pstore can be read. A reboot that doesn't ask for
- * recovery, bootloader or download sets the PON reason back to Samsung's
- * NORMALBOOT, so e.g. "adb reboot system" boots the boot partition again.
+ * sec_debug writes the IMEM restart reason and upload cause that Samsung's
+ * XBL reads on the next boot. With sec_boot_cookies.crash_to_recovery=1 the
+ * restart reason is set to recovery instead (IMEM at once, before sec_debug
+ * is up, and the PMIC PON reason once the PON driver is up), and sec_debug
+ * keeps it on panics, so a panic, watchdog reset or forced reset of a test
+ * kernel lands in recovery, where its log can be read. A reboot that doesn't
+ * ask for recovery, bootloader or download sets the PON reason back to
+ * Samsung's NORMALBOOT, so e.g. "adb reboot system" boots the boot partition
+ * again.
  */
 
 #define pr_fmt(fmt) "sec_boot_cookies: " fmt
@@ -28,48 +24,41 @@
 #include <linux/moduleparam.h>
 #include <linux/notifier.h>
 #include <linux/reboot.h>
+#include <linux/sec_debug.h>
 #include <linux/string.h>
-
-#define RESTART_REASON_NORMAL	0x0
-#define RESTART_REASON_RECOVERY	0x77665502
-#define UPLOAD_CAUSE_INIT	0xCAFEBABE
-/* Samsung PON restart reason, as written by sec_debug for "userrequested" */
-#define PON_RESTART_REASON_NORMALBOOT	0x14
 
 static bool crash_to_recovery;
 module_param(crash_to_recovery, bool, 0444);
 
-static int __init sec_boot_cookie_write(const char *compat, u32 val)
+bool sec_boot_cookies_crash_to_recovery(void)
+{
+	return crash_to_recovery;
+}
+
+static int __init sec_boot_cookies_init(void)
 {
 	struct device_node *np;
 	void __iomem *addr;
 
-	np = of_find_compatible_node(NULL, NULL, compat);
+	if (!crash_to_recovery)
+		return 0;
+
+	np = of_find_compatible_node(NULL, NULL, "qcom,msm-imem-restart_reason");
 	if (!np) {
-		pr_err("no %s node\n", compat);
+		pr_err("no restart_reason node\n");
 		return -ENODEV;
 	}
 	addr = of_iomap(np, 0);
 	of_node_put(np);
 	if (!addr) {
-		pr_err("can't map %s\n", compat);
+		pr_err("can't map restart_reason\n");
 		return -ENOMEM;
 	}
-	__raw_writel(val, addr);
+	__raw_writel(RESTART_REASON_RECOVERY, addr);
 	iounmap(addr);
-	return 0;
-}
-
-static int __init sec_boot_cookies_init(void)
-{
-	sec_boot_cookie_write("qcom,msm-imem-restart_reason",
-			      crash_to_recovery ? RESTART_REASON_RECOVERY :
-						  RESTART_REASON_NORMAL);
-	sec_boot_cookie_write("qcom,msm-imem-upload_cause", UPLOAD_CAUSE_INIT);
-	/* make sure the cookies are in IMEM before anything else can reset */
+	/* make sure the cookie is in IMEM before anything else can reset */
 	wmb();
-	pr_info("restart reason %s, upload cause init\n",
-		crash_to_recovery ? "recovery" : "normal");
+	pr_info("restart reason recovery\n");
 	return 0;
 }
 early_initcall(sec_boot_cookies_init);
@@ -85,8 +74,7 @@ static int sec_boot_cookies_reboot(struct notifier_block *nb,
 		    !strncmp(cmd, "bootloader", 10) ||
 		    !strncmp(cmd, "download", 8)))
 		return NOTIFY_DONE;
-	qpnp_pon_set_restart_reason((enum pon_restart_reason)
-				    PON_RESTART_REASON_NORMALBOOT);
+	qpnp_pon_set_restart_reason(PON_RESTART_REASON_NORMALBOOT);
 	return NOTIFY_DONE;
 }
 
