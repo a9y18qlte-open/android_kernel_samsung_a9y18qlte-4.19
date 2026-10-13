@@ -1469,6 +1469,42 @@ static struct snd_soc_ops msm_wcn_ops = {
 	.hw_params = msm_wcn_hw_params,
 };
 
+static int msm_fm_snd_startup(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct msm_asoc_mach_data *pdata =
+		snd_soc_card_get_drvdata(rtd->card);
+
+	pr_info("%s: startup\n", __func__);
+
+	if (pdata->fm_lna_en > 0) {
+		gpio_direction_output(pdata->fm_lna_en, 1);
+	}
+
+	return 0;
+}
+
+static void msm_fm_snd_shutdown(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct msm_asoc_mach_data *pdata =
+		snd_soc_card_get_drvdata(rtd->card);
+
+	pr_info("%s: shutdown\n", __func__);
+
+	if (pdata->fm_lna_en > 0) {
+		gpio_direction_output(pdata->fm_lna_en, 0);
+	}
+
+	return;
+}
+
+static struct snd_soc_ops msm_fm_wcn_ops = {
+	.startup = msm_fm_snd_startup,
+	.shutdown = msm_fm_snd_shutdown,
+	.hw_params = msm_wcn_hw_params,
+};
+
 static struct snd_soc_ops msm_mi2s_be_ops = {
 	.startup = msm_mi2s_snd_startup,
 	.shutdown = msm_mi2s_snd_shutdown,
@@ -2687,8 +2723,13 @@ static struct snd_soc_dai_link msm_mi2s_be_dai_links[] = {
 		.stream_name = "Tertiary MI2S Playback",
 		.cpu_dai_name = "msm-dai-q6-mi2s.2",
 		.platform_name = "msm-pcm-routing",
+#if defined (CONFIG_SND_SOC_TFA9872)
+		.dai_fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF |
+			SND_SOC_DAIFMT_CBS_CFS,
+#else
 		.codec_name = "msm-stub-codec.1",
 		.codec_dai_name = "msm-stub-rx",
+#endif
 		.no_pcm = 1,
 		.dpcm_playback = 1,
 		.id = MSM_BACKEND_DAI_TERTIARY_MI2S_RX,
@@ -2702,8 +2743,13 @@ static struct snd_soc_dai_link msm_mi2s_be_dai_links[] = {
 		.stream_name = "Tertiary MI2S Capture",
 		.cpu_dai_name = "msm-dai-q6-mi2s.2",
 		.platform_name = "msm-pcm-routing",
+#if defined (CONFIG_SND_SOC_TFA9872)
+		.dai_fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF |
+			SND_SOC_DAIFMT_CBS_CFS,
+#else
 		.codec_name = "msm-stub-codec.1",
 		.codec_dai_name = "msm-stub-tx",
+#endif
 		.no_pcm = 1,
 		.dpcm_capture = 1,
 		.id = MSM_BACKEND_DAI_TERTIARY_MI2S_TX,
@@ -2972,7 +3018,7 @@ static struct snd_soc_dai_link msm_wcn_be_dai_links[] = {
 		.id = MSM_BACKEND_DAI_SLIMBUS_8_TX,
 		.be_hw_params_fixup = msm_btfm_be_hw_params_fixup,
 		.init = &msm_wcn_init,
-		.ops = &msm_wcn_ops,
+		.ops = &msm_fm_wcn_ops,
 		.ignore_suspend = 1,
 	},
 };
@@ -3077,6 +3123,35 @@ static void msm_int_dt_parse_cap_info(struct platform_device *pdev,
 		 MICBIAS_EXT_BYP_CAP : MICBIAS_NO_EXT_BYP_CAP);
 }
 
+#if defined (CONFIG_SND_SOC_TFA9872)
+static void tfa98xx_get_codec_name(struct device *dev)
+{
+	struct device_node *np;
+	int ret;
+	int i;
+
+	np = of_get_child_by_name(dev->of_node, "speaker-dai");
+	if (!np) {
+		dev_info(dev, "does not find speaker-dai\n");
+		return;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(msm_mi2s_be_dai_links); i++) {
+		if (msm_mi2s_be_dai_links[i].codec_name) {
+			continue;
+		}
+		msm_mi2s_be_dai_links[i].codec_of_node =
+			of_parse_phandle(np, "sound-dai", 0);
+		ret = snd_soc_of_get_dai_name(np,
+			&msm_mi2s_be_dai_links[i].codec_dai_name);
+		if (ret)
+			dev_info(dev, "failed to get speaker_dai\n");
+	}
+
+	return;
+}
+#endif /* CONFIG_SND_SOC_TFA9872 */
+
 static struct snd_soc_card *msm_int_populate_sndcard_dailinks(
 						struct device *dev)
 {
@@ -3101,7 +3176,9 @@ static struct snd_soc_card *msm_int_populate_sndcard_dailinks(
 
 	memcpy(dailink + len1, msm_int_be_dai, sizeof(msm_int_be_dai));
 	len1 += ARRAY_SIZE(msm_int_be_dai);
-
+#if defined (CONFIG_SND_SOC_TFA9872)
+	tfa98xx_get_codec_name(dev);
+#endif /* CONFIG_SND_SOC_TFA9872 */
 	if (of_property_read_bool(dev->of_node,
 				  "qcom,mi2s-audio-intf")) {
 		memcpy(dailink + len1,
@@ -3142,6 +3219,14 @@ static struct snd_soc_card *msm_int_populate_sndcard_dailinks(
 	card->num_links = len1;
 	return card;
 }
+
+#if defined (CONFIG_SND_SOC_TFA9872)
+static struct snd_soc_codec_conf amp_conf[] = {
+	{
+		.name_prefix = "NXP",
+	},
+};
+#endif
 
 static int msm_internal_init(struct platform_device *pdev,
 			     struct msm_asoc_mach_data *pdata,
@@ -3190,6 +3275,27 @@ static int msm_internal_init(struct platform_device *pdev,
 	msm_int_dt_parse_cap_info(pdev, pdata);
 
 	card->dev = &pdev->dev;
+#if defined (CONFIG_SND_SOC_TFA9872)
+	amp_conf[0].of_node = of_parse_phandle(pdev->dev.of_node, "speaker-amps", 0);
+	card->codec_conf = amp_conf;
+	card->num_configs = 1;
+#endif
+
+	pdata->fm_lna_en = of_get_named_gpio(pdev->dev.of_node,
+				"qcom,fm-lna-gpios", 0);
+	if (pdata->fm_lna_en > 0) {
+		dev_info(&pdev->dev, "%s: uses fm_lna_en %d", __func__,
+			pdata->fm_lna_en);
+		ret = devm_gpio_request(&pdev->dev, pdata->fm_lna_en,
+					"fm_lna_en");
+		if (ret) {
+			dev_err(card->dev,
+				"%s: Failed to request fm_lna_en gpio %d error %d\n",
+				__func__, pdata->fm_lna_en, ret);
+		} else
+			gpio_direction_output(pdata->fm_lna_en, 0);
+	}
+
 	platform_set_drvdata(pdev, card);
 	snd_soc_card_set_drvdata(card, pdata);
 	ret = snd_soc_of_parse_card_name(card, "qcom,model");

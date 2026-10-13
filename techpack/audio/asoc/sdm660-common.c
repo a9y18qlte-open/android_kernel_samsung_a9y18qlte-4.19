@@ -5510,6 +5510,22 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 	if (pdata->snd_card_val != INT_SND_CARD)
 		msm_ext_register_audio_notifier(pdev);
 
+	pdata->dmic_ldo_en = of_get_named_gpio(pdev->dev.of_node,
+				"qcom,dmic-ldo-en", 0);
+
+	if (pdata->dmic_ldo_en >= 0) {
+		dev_dbg(&pdev->dev, "%s: dmic_ldo_en gpio request %d", __func__,
+			pdata->dmic_ldo_en);
+		ret = gpio_request(pdata->dmic_ldo_en, "dmic_ldo_en");
+		if (ret) {
+			dev_err(card->dev,
+				"%s: Failed to request dmic_ldo_en gpio %d error %d\n",
+				__func__, pdata->dmic_ldo_en, ret);
+		} else {
+			gpio_direction_output(pdata->dmic_ldo_en, 1);
+		}
+	}
+
 	return 0;
 err:
 	if (pdata->us_euro_gpio > 0) {
@@ -5555,6 +5571,8 @@ static int msm_asoc_machine_remove(struct platform_device *pdev)
 		gpio_free(pdata->hph_en0_gpio);
 		pdata->hph_en0_gpio = 0;
 	}
+	if (pdata->dmic_ldo_en > 0)
+		gpio_free(pdata->dmic_ldo_en);
 
 	if (pdata->snd_card_val != INT_SND_CARD) {
 		audio_notifier_deregister("sdm660");
