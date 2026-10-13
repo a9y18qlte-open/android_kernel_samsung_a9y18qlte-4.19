@@ -979,6 +979,11 @@ static const struct adc_channels adc_chans_rev2[ADC_MAX_CHANNEL] = {
 					SCALE_HW_CALIB_DEFAULT)
 	[ADC_DIE_TEMP]		= ADC_CHAN_TEMP("die_temp", 1,
 					SCALE_HW_CALIB_PMIC_THERM)
+	/* pm660 GPIO voltages (a9y18qlte moisture and ear jack ADCs) */
+	[ADC_GPIO2]		= ADC_CHAN_VOLT("gpio2", 1,
+					SCALE_HW_CALIB_DEFAULT)
+	[ADC_GPIO6]		= ADC_CHAN_VOLT("gpio6", 1,
+					SCALE_HW_CALIB_DEFAULT)
 	[ADC_AMUX_THM1_PU2]	= ADC_CHAN_TEMP("amux_thm1_pu2", 1,
 					SCALE_HW_CALIB_THERM_100K_PULLUP)
 	[ADC_AMUX_THM2_PU2]	= ADC_CHAN_TEMP("amux_thm2_pu2", 1,
