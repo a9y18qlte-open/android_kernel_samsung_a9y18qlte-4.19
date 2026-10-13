@@ -331,7 +331,12 @@
 		pinctrl-1 = <&s2mm005_hard_reset>;
 
 		usbpd-s2mm005@33 {
-			compatible = "sec-s2mm005,i2c";
+			/*
+			 * Was "sec-s2mm005,i2c": 4.19's i2c OF match falls back to
+			 * the part after the vendor comma, so every "*,i2c" driver
+			 * bound every "*,i2c" client (s2mm005 probed the fuel gauge).
+			 */
+			compatible = "sec,s2mm005";
 			reg = <0x33>;
 			interrupt-parent = <&tlmm>;
 			usbpd,usbpd_int = <&tlmm 58 0>;
@@ -495,28 +500,24 @@
 	};
 };
 
+/*
+ * 4.19 drives the pm660 ADC with the IIO ADC5 driver; the CVL2 qpnp-vadc-hc
+ * chan@ nodes are rewritten in its binding (an unknown qcom,decimation made
+ * the whole ADC fail to probe). pa_therm0 (0x4f) is already in pm660.dtsi.
+ */
 &pm660_vadc {
-	chan@4f {
-		label = "pa_therm0";
-		reg = <0x4f>;
-		qcom,decimation = <2>;
-		qcom,pre-div-channel-scaling = <0>;
-		qcom,calibration-type = "ratiometric";
-		qcom,scale-function = <2>;
-		qcom,hw-settle-time = <2>;
-		qcom,fast-avg-setup = <0>;
-		qcom,vadc-thermal-node;
+	vbat_sns {
+		reg = <ADC_VBAT_SNS>;
+		label = "vbat_sns";
+		qcom,pre-scaling = <1 3>;
 	};
 
-	chan@59 {
-		label = "gpio12_adc";
+	gpio12_adc {
 		reg = <0x59>;				// Channel for PM660 GPIO 12
-		qcom,decimation = <2>;
-		qcom,pre-div-channel-scaling = <0>;	// 1:1 Scaling
-		qcom,calibration-type = "ratiometric";
-		qcom,scale-function = <2>;
-		qcom,hw-settle-time = <2>;
-		qcom,fast-avg-setup = <0>;
+		label = "gpio12_adc";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
 	};
 };
 
