@@ -25,7 +25,6 @@
 #include <linux/of_device.h>
 #include <linux/of_dma.h>
 #include <linux/amba/bus.h>
-#include <linux/amba/pl330.h>
 #endif
 
 #include <linux/cpufreq.h>

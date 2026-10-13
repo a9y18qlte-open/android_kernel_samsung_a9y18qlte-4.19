@@ -539,6 +539,7 @@ static long etspi_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			if (etspi->min_cpufreq_limit) {
 				pm_qos_add_request(&etspi->pm_qos,
 					PM_QOS_CPU_DMA_LATENCY, 0);
+#ifdef CONFIG_CPU_FREQ_LIMIT
 				do {
 					retval = set_freq_limit(DVFS_FINGER_ID,
 						etspi->min_cpufreq_limit);
@@ -550,13 +551,16 @@ static long etspi_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 						usleep_range(500, 510);
 					}
 				} while (retval && retry_cnt < 7);
+#endif
 			}
 		} else {
 			pr_info("%s FP_CPU_SPEEDUP OFF\n", __func__);
+#ifdef CONFIG_CPU_FREQ_LIMIT
 			retval = set_freq_limit(DVFS_FINGER_ID, -1);
 			if (retval)
 				pr_err("%s: booster stop failed. (%d)\n"
 					, __func__, retval);
+#endif
 			pm_qos_remove_request(&etspi->pm_qos);
 		}
 		break;
@@ -1099,7 +1103,7 @@ static void etspi_disable_debug_timer(void)
 	cancel_work_sync(&g_data->work_debug);
 }
 
-static void etspi_timer_func(unsigned long ptr)
+static void etspi_timer_func(struct timer_list *t)
 {
 	queue_work(g_data->wq_dbg, &g_data->work_debug);
 	mod_timer(&g_data->dbg_timer,
@@ -1110,8 +1114,7 @@ static int etspi_set_timer(struct etspi_data *etspi)
 {
 	int status = 0;
 
-	setup_timer(&etspi->dbg_timer,
-		etspi_timer_func, (unsigned long)etspi);
+	timer_setup(&etspi->dbg_timer, etspi_timer_func, 0);
 	etspi->wq_dbg =
 		create_singlethread_workqueue("etspi_debug_wq");
 	if (!etspi->wq_dbg) {
