@@ -28,6 +28,7 @@
 #include <linux/of_platform.h>
 #include <linux/pm_opp.h>
 #include <linux/regulator/consumer.h>
+#include <linux/sec_debug.h>
 
 #include "clk.h"
 
@@ -2305,6 +2306,7 @@ static int clk_change_rate(struct clk_core *core)
 	}
 
 	trace_clk_set_rate(core, core->new_rate);
+	sec_debug_clock_rate_log(core->name, core->new_rate, raw_smp_processor_id());
 
 	if (core->new_parent && core->new_parent != core->parent) {
 		old_parent = __clk_set_parent_before(core, core->new_parent);
@@ -2336,6 +2338,7 @@ static int clk_change_rate(struct clk_core *core)
 	}
 
 	trace_clk_set_rate_complete(core, core->new_rate);
+	sec_debug_clock_rate_complete_log(core->name, core->new_rate, raw_smp_processor_id());
 
 	core->rate = clk_recalc(core, best_parent_rate);
 
