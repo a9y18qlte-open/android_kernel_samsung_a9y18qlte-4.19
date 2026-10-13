@@ -40,112 +40,81 @@
 			reg = <0x34>;
 		};
 	};
+};
 
-	int_codec: sound {
-		compatible = "qcom,sdm660-asoc-snd";
-		qcom,model = "sdm660-snd-card";
-		qcom,wsa-disable;
-		qcom,wcn-btfm;
-		qcom,mi2s-audio-intf;
-		qcom,ext-disp-audio-rx;
-		qcom,msm-mi2s-master = <1>, <1>, <1>, <1>;
-		qcom,tert-mi2s-gpios = <&tert_mi2s_gpios>;
-		qcom,msm-mclk-freq = <9600000>;
-		speaker-amps = <&nxp_tfa98xx>;
-		qcom,msm-hs-micbias-type = "external";
-		qcom,cdc-pdm-gpios = <&cdc_pdm_gpios>;
-		qcom,cdc-comp-gpios = <&cdc_comp_gpios>;
-		qcom,cdc-dmic-gpios = <&cdc_dmic_gpios>;
-		qcom,amux_channel = <0x17>;
-		qcom,moisture-channel = <0x13>;
-		qcom,earjack-read-vadc = <&pm660_vadc>;
-		qcom,moisture-read-vadc = <&pm660_vadc>;
-		qcom,dmic-ldo-en = <&tlmm 24 0x0>;
-		qcom,fm-lna-gpios = <&expander_gpios 20 0>;
+/*
+ * 4.19: the card node is int_codec under qcom,msm-audio-apr/q6core-audio,
+ * so override it instead of redefining soc/sound. Keep 4.19's asoc-cpu
+ * lists (they name the 4.19 DAI devices, e.g. msm-dai-q6-dp.0, and add
+ * QUIN MI2S); msm-mi2s-master needs one entry per MI2S_MAX (5) here.
+ */
+&int_codec {
+	qcom,wsa-disable;
+	qcom,wcn-btfm;
+	qcom,mi2s-audio-intf;
+	qcom,ext-disp-audio-rx;
+	qcom,msm-mi2s-master = <1>, <1>, <1>, <1>, <1>;
+	qcom,tert-mi2s-gpios = <&tert_mi2s_gpios>;
+	qcom,msm-mclk-freq = <9600000>;
+	speaker-amps = <&nxp_tfa98xx>;
+	qcom,msm-hs-micbias-type = "external";
+	qcom,cdc-pdm-gpios = <&cdc_pdm_gpios>;
+	qcom,cdc-comp-gpios = <&cdc_comp_gpios>;
+	qcom,cdc-dmic-gpios = <&cdc_dmic_gpios>;
+	qcom,amux_channel = <0x17>;
+	qcom,moisture-channel = <0x13>;
+	qcom,earjack-read-vadc = <&pm660_vadc>;
+	qcom,moisture-read-vadc = <&pm660_vadc>;
+	qcom,dmic-ldo-en = <&tlmm 24 0x0>;
+	qcom,fm-lna-gpios = <&expander_gpios 20 0>;
 
-		qcom,audio-routing =
-			"RX_BIAS", "INT_MCLK0",
-			"SPK_RX_BIAS", "INT_MCLK0",
-			"INT_LDO_H", "INT_MCLK0",
-			"RX_I2S_CLK", "INT_MCLK0",
-			"TX_I2S_CLK", "INT_MCLK0",
-			"AMIC2", "Headset Mic",
-			"DMIC1", "Digital Mic1",
-			"DMIC2", "Digital Mic1",
-			"DMIC3", "Digital Mic3",
-			"PDM_IN_RX1", "PDM_OUT_RX1",
-			"PDM_IN_RX2", "PDM_OUT_RX2",
-			"PDM_IN_RX3", "PDM_OUT_RX3",
-			"ADC2_IN", "ADC2_OUT";
+	qcom,audio-routing =
+		"RX_BIAS", "INT_MCLK0",
+		"SPK_RX_BIAS", "INT_MCLK0",
+		"INT_LDO_H", "INT_MCLK0",
+		"RX_I2S_CLK", "INT_MCLK0",
+		"TX_I2S_CLK", "INT_MCLK0",
+		"AMIC2", "Headset Mic",
+		"DMIC1", "Digital Mic1",
+		"DMIC2", "Digital Mic1",
+		"DMIC3", "Digital Mic3",
+		"PDM_IN_RX1", "PDM_OUT_RX1",
+		"PDM_IN_RX2", "PDM_OUT_RX2",
+		"PDM_IN_RX3", "PDM_OUT_RX3",
+		"ADC2_IN", "ADC2_OUT";
 
-		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
-				<&loopback>, <&compress>, <&hostless>,
-				<&afe>, <&lsm>, <&routing>, <&compr>,
-				 <&pcm_noirq>, <&samsung_q6audio_adaptation>;
-		asoc-platform-names = "msm-pcm-dsp.0", "msm-pcm-dsp.1",
-				"msm-pcm-dsp.2", "msm-voip-dsp",
-				"msm-pcm-voice", "msm-pcm-loopback",
-				"msm-compress-dsp", "msm-pcm-hostless",
-				"msm-pcm-afe", "msm-lsm-client",
-				"msm-pcm-routing", "msm-compr-dsp",
-				"msm-pcm-dsp-noirq", "q6audio-adaptation";
-		asoc-cpu = <&dai_dp>, <&dai_mi2s0>,
-				<&dai_mi2s1>,
-				<&dai_mi2s2>, <&dai_mi2s3>,
-				<&dai_int_mi2s0>, <&dai_int_mi2s1>,
-				<&dai_int_mi2s2>, <&dai_int_mi2s3>,
-				<&dai_int_mi2s4>, <&dai_int_mi2s5>,
-				<&dai_pri_auxpcm>, <&dai_sec_auxpcm>,
-				<&dai_tert_auxpcm>, <&dai_quat_auxpcm>,
-				<&afe_pcm_rx>, <&afe_pcm_tx>, <&afe_proxy_rx>,
-				<&afe_proxy_tx>, <&incall_record_rx>,
-				<&incall_record_tx>, <&incall_music_rx>,
-				<&incall_music_2_rx>, <&sb_7_rx>, <&sb_7_tx>,
-				<&sb_8_tx>, <&sb_8_rx>,
-				<&usb_audio_rx>, <&usb_audio_tx>,
-				<&dai_pri_tdm_rx_0>, <&dai_pri_tdm_tx_0>,
-				<&dai_sec_tdm_rx_0>, <&dai_sec_tdm_tx_0>,
-				<&dai_tert_tdm_rx_0>, <&dai_tert_tdm_tx_0>,
-				<&dai_quat_tdm_rx_0>, <&dai_quat_tdm_tx_0>;
-		asoc-cpu-names = "msm-dai-q6-dp.24608", "msm-dai-q6-mi2s.0",
-				"msm-dai-q6-mi2s.1",
-				"msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3",
-				"msm-dai-q6-mi2s.7", "msm-dai-q6-mi2s.8",
-				"msm-dai-q6-mi2s.9", "msm-dai-q6-mi2s.10",
-				"msm-dai-q6-mi2s.11", "msm-dai-q6-mi2s.12",
-				"msm-dai-q6-auxpcm.1", "msm-dai-q6-auxpcm.2",
-				"msm-dai-q6-auxpcm.3", "msm-dai-q6-auxpcm.4",
-				"msm-dai-q6-dev.224", "msm-dai-q6-dev.225",
-				"msm-dai-q6-dev.241", "msm-dai-q6-dev.240",
-				"msm-dai-q6-dev.32771", "msm-dai-q6-dev.32772",
-				"msm-dai-q6-dev.32773", "msm-dai-q6-dev.32770",
-				"msm-dai-q6-dev.16398", "msm-dai-q6-dev.16399",
-				"msm-dai-q6-dev.16401", "msm-dai-q6-dev.16400",
-				"msm-dai-q6-dev.28672", "msm-dai-q6-dev.28673",
-				"msm-dai-q6-tdm.36864", "msm-dai-q6-tdm.36865",
-				"msm-dai-q6-tdm.36880", "msm-dai-q6-tdm.36881",
-				"msm-dai-q6-tdm.36896", "msm-dai-q6-tdm.36897",
-				"msm-dai-q6-tdm.36912", "msm-dai-q6-tdm.36913";
-		asoc-codec = <&stub_codec>, <&msm_digital_codec>,
-				<&pmic_analog_codec>, <&ext_disp_audio_codec>;
-		asoc-codec-names = "msm-stub-codec.1", "msm-dig-codec",
-					"analog-codec",
-					"msm-ext-disp-audio-codec-rx";
+	asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
+			<&loopback>, <&compress>, <&hostless>,
+			<&afe>, <&lsm>, <&routing>, <&compr>,
+			 <&pcm_noirq>, <&samsung_q6audio_adaptation>;
+	asoc-platform-names = "msm-pcm-dsp.0", "msm-pcm-dsp.1",
+			"msm-pcm-dsp.2", "msm-voip-dsp",
+			"msm-pcm-voice", "msm-pcm-loopback",
+			"msm-compress-dsp", "msm-pcm-hostless",
+			"msm-pcm-afe", "msm-lsm-client",
+			"msm-pcm-routing", "msm-compr-dsp",
+			"msm-pcm-dsp-noirq", "q6audio-adaptation";
+	asoc-codec = <&stub_codec>, <&msm_digital_codec>,
+			<&pmic_analog_codec>, <&ext_disp_audio_codec>;
+	asoc-codec-names = "msm-stub-codec.1", "msm-dig-codec",
+				"analog-codec",
+				"msm-ext-disp-audio-codec-rx";
 
-		/delete-property/qcom,auxpcm-audio-intf;
-		/delete-property/qcom,msm-mbhc-hphl-swh;
-		/delete-property/qcom,msm-mbhc-gnd-swh;
-		/delete-property/qcom,us-euro-gpios;
-		/delete-property/qcom,wsa-max-devs;
-		/delete-property/qcom,wsa-devs;
-		/delete-property/qcom,wsa-aux-dev-prefix;
-		/delete-property/qcom,msm-micbias2-ext-cap;
+	/delete-property/qcom,auxpcm-audio-intf;
+	/delete-property/qcom,msm-mbhc-hphl-swh;
+	/delete-property/qcom,msm-mbhc-gnd-swh;
+	/delete-property/qcom,us-euro-gpios;
+	/delete-property/qcom,wsa-max-devs;
+	/delete-property/qcom,wsa-devs;
+	/delete-property/qcom,wsa-aux-dev-prefix;
+	/delete-property/qcom,msm-micbias2-ext-cap;
 
-		speaker-dai {
-			sound-dai = <&nxp_tfa98xx 0>;
-		};
+	speaker-dai {
+		sound-dai = <&nxp_tfa98xx 0>;
 	};
+};
 
+&soc {
 	tert_mi2s_gpios: tert_mi2s_pinctrl {
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";
@@ -206,93 +175,10 @@
 		pinctrl-1 = <&earjack_det_sus &earjack_switch_sus>;
 	};
 
-	spi_8: spi@c1b8000 { /* BLSP2 QUP4 */
-		status = "okay";
-		dbmd4_spi:dbmd4_interface@0  {
-			compatible = "dspg,dbmd4-spi";
-			spi-max-frequency = <1000000>;
-			read-chunk-size  = <0x2000>;
-			write-chunk-size = <0x40000>;
-			reg = <0x0>;
-			qcom,spiop-read = <0x03 3 0 0 0>;
-			qcom,spiop-readseq = <0x03 3 0 0 0>;
-			qcom,spiop-queryid = <0x90 3 0 0 0>;
-			qcom,spiop-pprog = <0x02 2 0 0 0>;
-			qcom,spiop-wenable = <0x06 0 0 0 0>;
-			qcom,spiop-readst = <0x05 0 0 0 0>;
-			qcom,spiop-erase = <0x20 2 0 10 30>;
-			qcom,spi-busy-mask = <0x01>;
-			qcom,spi-page-size = <0x256>;
-			qcom,spi-erase-size = <0x4096>;
-		};
-	};
-
-	dbmdx_event {
-		status = "okay";
-		compatible = "samsung,dbmdx-event";
-	};
-
-	dbmdx-snd-soc-platform {
-		compatible = "dspg,dbmdx-snd-soc-platform";
-	};
-
-	snd-dbmdx-mach-drv {
-		compatible = "dspg,snd-dbmdx-mach-drv";
-	};
-
-	dbmdx {
-		status = "okay";
-		compatible = "dspg,dbmdx-codec";
-		qcom,use-pinctrl;
-		pinctrl-names = "dbmdx_default", "dbmdx_sleep";
-		sv-gpio = <&tlmm 25 0>; /* VOICE_INT */
-		wakeup-gpio = <&pm660_gpios 11 0>; /* VOICE_WAKE */
-		reset-gpio = <&expander_gpios 10 0>; /* VOICE_RST */
-		auto_buffering = <1>;
-		cmd-interface = <&dbmd4_spi>;
-		feature-va; /* enable VA */
-		va-firmware-name = "dbmd4_va_fw.bin";
-		va-config = <0x80000000
-			     0x80000000
-			     0x80000000
-			     0x80290020
-			     0x802210E0
-			     0x80158F8F
-			     0x801b0020
-			     0x801a0011
-			     0x80230001
-                             0x80108017   // DSP clock speed.
-                             0x8aab0040   // Delay 40m secs 
-                             0x800C7530  // Debugging Uart Speed setting. 
-			     0x80000000
-			     0x80000000
-			     0x80000000>;
-		va-speeds = <0x0000 460800  0 960000
-			     0x0000 2000000 0 4800000
-			     0x0000 3000000 0 4800000>;
-		va-mic-config = <0xf041 0x5044 0x0028>;
-		va-mic-mode = <0>;
-		master-clk-rate = <32768>;
-		/* constant-clk-rate = <32768>; */
-		firmware_id = <0xdbd4>;
-		use_gpio_for_wakeup = <1>; /* Use wakeup gpio */
-		wakeup_set_value = <0>;  /* Value to write to wakeup gpio */
-		auto_detection = <1>;
-		detection_buffer_channels = <0>;
-		min_samples_chunk_size = <128>;
-		pcm_streaming_mode = <1>;
-		boot_options = <0x200>; /* Verify chip id */
-		send_uevent_after_buffering = <0>;
-		detection_after_buffering = <0>;
-		va_backlog_length = <1802>;
-		va_backlog_length_okg = <1000>;
-		send_uevent_on_detection = <1>;
-		amodel_options = <0x1B>;
-
-		digital_mic_digital_gain = <0x64>;
-		analog_mic_analog_gain = <0x6>;
-	};
-
+	/*
+	 * 4.19: the DSPG DBMD4 voice wakeup chip (spi_8 + dbmdx nodes) is
+	 * not ported; the ROM uses QTI's sound trigger instead.
+	 */
 };
 
 &pmic_analog_codec {
@@ -303,66 +189,10 @@
 	regulator-always-on;
 };
 
-&pm660_vadc {
-	chan@13 {
-		label = "moisture_adc";
-		reg = <0x13>;
-		qcom,decimation = <0>;
-		qcom,pre-div-channel-scaling = <0>;
-		qcom,calibration-type = "absolute";
-		qcom,scale-function = <0>;
-		qcom,hw-settle-time = <2>;
-		qcom,fast-avg-setup = <0>;
-	};
-
-	chan@17 {
-		label = "ear_adc_35";
-		reg = <0x17>;
-		qcom,decimation = <0>;
-		qcom,pre-div-channel-scaling = <0>;
-		qcom,calibration-type = "absolute";
-		qcom,scale-function = <0>;
-		qcom,hw-settle-time = <2>;
-		qcom,fast-avg-setup = <0>;
-	};
-};
-
-&pm660_gpios {
-	/delete-node/gpio@c200;
-	gpio@c100 {
-		reg = <0xc100 0x100>;
-		qcom,pin-num = <2>;
-		qcom,mode = <1>;
-		status = "okay";
-	};
-
- 	gpio@c200 {
-		reg = <0xc200 0x100>;
-		qcom,pin-num = <3>;
-		qcom,pull = <5>;
-		qcom,master-en = <0>;
-		status = "okay";
-	};
-
-	gpio@c800 {
-		reg = <0xc800 0x100>;
-		qcom,pin-num = <9>;
-		qcom,pull = <5>;
-		qcom,master-en = <0>;
-		status = "okay";
-	};
-
-	/* GPIO 11 (VOICE_WAKE) */
-	gpio@ca00 {
-		reg = <0xca00 0x100>;
-		qcom,pin-num = <11>;
-		qcom,mode = <1>;
-		qcom,output-type = <0>;
-		qcom,pull = <5>;
-		qcom,vin-sel = <0>;
-		qcom,out-strength = <1>;
-		qcom,src-sel = <0>;
-		qcom,master-en = <1>;
-		status = "okay";
-	};
-};
+/*
+ * 4.19: the qpnp-vadc chan@13/chan@17 (moisture, ear ADC) nodes don't fit
+ * the IIO ADC5 binding; the jack channels come with the sec_jack port.
+ * The legacy qpnp-pin PM660 GPIO 3/9/11 setup lives in
+ * sdm660-sec-a9y18qlte-pmic-gpio.dtsi; GPIO 2 (output, no consumer) is
+ * left at its reset state.
+ */
