@@ -204,6 +204,10 @@
 #define PANIC_ON_BUG_STR ""
 #endif
 
+#ifdef SEC_WRITE_ANT_GPIO_INFO_IN_SYSFS
+#include <linux/gpio.h>
+#include <linux/of_gpio.h>
+#endif /* SEC_WRITE_ANT_GPIO_INFO_IN_SYSFS */
 int wlan_start_ret_val;
 static DECLARE_COMPLETION(wlan_start_comp);
 static qdf_atomic_t wlan_hdd_state_fops_ref;
@@ -212,6 +216,72 @@ static struct cdev wlan_hdd_state_cdev;
 static struct class *class;
 static dev_t device;
 static bool hdd_loaded = false;
+
+#if defined (SEC_READ_MACADDR_SYSFS) || defined (SEC_WRITE_VERSION_IN_SYSFS) || defined (SEC_WRITE_SOFTAP_INFO_IN_SYSFS) || defined (SEC_CONFIG_PSM_SYSFS) || defined (SEC_WRITE_ANT_GPIO_INFO_IN_SYSFS)
+struct kobject *sec_sysfs_kobject;
+
+#if defined (SEC_READ_MACADDR_SYSFS)
+static ssize_t show_mac_addr(struct kobject *kobj,
+			       struct kobj_attribute *attr,
+			       char *buf);
+static ssize_t store_mac_addr(struct kobject *kobj,
+			       struct kobj_attribute *attr,
+			    const char *buf, size_t count);
+#endif
+static ssize_t show_verinfo(struct kobject *kobj,
+			       struct kobj_attribute *attr,
+			       char *buf);
+static ssize_t show_softapinfo(struct kobject *kobj,
+			       struct kobj_attribute *attr,
+			       char *buf);
+static ssize_t show_qcwlanstate(struct kobject *kobj,
+				struct kobj_attribute *attr,
+				char *buf);
+static ssize_t store_pm_info(struct kobject *kobj,
+			       struct kobj_attribute *attr,
+			    const char *buf, size_t count);
+static ssize_t show_wificableinfo(struct kobject *kobj,
+			       struct kobj_attribute *attr,
+			       char *buf);
+
+#if defined (SEC_READ_MACADDR_SYSFS)
+static struct kobj_attribute sec_mac_addr_attribute =
+	__ATTR(mac_addr, 0640, show_mac_addr, store_mac_addr);
+#endif
+static struct kobj_attribute sec_verinfo_sysfs_attribute =
+	__ATTR(wifiver, 0440, show_verinfo, NULL);
+static struct kobj_attribute sec_softapinfo_sysfs_attribute =
+	__ATTR(softap, 0440, show_softapinfo, NULL);
+static struct kobj_attribute qcwlanstate_attribute =
+       __ATTR(qcwlanstate, 0440, show_qcwlanstate, NULL);
+static struct kobj_attribute sec_pminfo_sysfs_attribute =
+       __ATTR(pm, 0440, NULL, store_pm_info);
+static struct kobj_attribute sec_wificableinfo_sysfs_attribute =
+	__ATTR(wificable, 0440, show_wificableinfo, NULL);
+
+static struct attribute *sec_sysfs_attrs[] = {
+#if defined (SEC_READ_MACADDR_SYSFS)
+	&sec_mac_addr_attribute.attr,
+#endif
+	&sec_verinfo_sysfs_attribute.attr,
+	&sec_softapinfo_sysfs_attribute.attr,
+	&qcwlanstate_attribute.attr,
+	&sec_pminfo_sysfs_attribute.attr,
+	&sec_wificableinfo_sysfs_attribute.attr,
+	NULL
+};
+
+static struct attribute_group sec_sysfs_attr_group = {
+	.attrs = sec_sysfs_attrs,
+};
+struct qdf_mac_addr sec_mac_addrs[1];
+static int sec_rfmode_off = 1;
+void sec_sysfs_create(void);
+void sec_sysfs_destroy(void);
+#endif /* SEC_READ_MACADDR_SYSFS || SEC_WRITE_VERSION_IN_SYSFS || SEC_WRITE_SOFTAP_INFO_IN_SYSFS || SEC_CONFIG_PSM_SYSFS || SEC_WRITE_ANT_GPIO_INFO_IN_SYSFS */
+#ifdef SEC_WRITE_SOFTAP_INFO_IN_SYSFS
+static uint16_t sec_max_station = 0;
+#endif //SEC_WRITE_SOFTAP_INFO_IN_SYSFS
 #ifndef MODULE
 static struct gwlan_loader *wlan_loader;
 static ssize_t wlan_boot_cb(struct kobject *kobj,
@@ -283,6 +353,11 @@ static const struct wiphy_wowlan_support wowlan_support_reg_init = {
 	.pattern_min_len = WOW_MIN_PATTERN_SIZE,
 	.pattern_max_len = WOW_MAX_PATTERN_SIZE,
 };
+#ifdef CONFIG_SEC
+static struct cfg80211_wowlan wowlan_config = {
+	.magic_pkt = true,
+};
+#endif /* CONFIG_SEC */
 #endif
 
 static const struct category_info cinfo[MAX_SUPPORTED_CATEGORY] = {
@@ -1833,6 +1908,7 @@ static void hdd_update_tgt_vht_cap(struct hdd_context *hdd_ctx,
  * Return: 0 for success
  *         Non zero failure code for errors
  */
+#ifndef SEC_READ_MACADDR_SYSFS
 static int hdd_generate_macaddr_auto(struct hdd_context *hdd_ctx)
 {
 	unsigned int serialno = 0;
@@ -1853,6 +1929,7 @@ static int hdd_generate_macaddr_auto(struct hdd_context *hdd_ctx)
 	hdd_update_macaddr(hdd_ctx, mac_addr, true);
 	return 0;
 }
+#endif /*!SEC_READ_MACADDR_SYSFS*/
 
 static void hdd_sar_target_config(struct hdd_context *hdd_ctx,
 				  struct wma_tgt_cfg *cfg)
@@ -2113,6 +2190,7 @@ int hdd_update_tgt_cfg(hdd_handle_t hdd_handle, struct wma_tgt_cfg *cfg)
 		hdd_ctx->reg.eeprom_rd_ext = cfg->eeprom_rd_ext;
 	}
 
+#ifndef SEC_READ_MACADDR_SYSFS
 	/* This can be extended to other configurations like ht, vht cap... */
 
 	if (!qdf_is_macaddr_zero(&cfg->hw_macaddr))
@@ -2120,6 +2198,7 @@ int hdd_update_tgt_cfg(hdd_handle_t hdd_handle, struct wma_tgt_cfg *cfg)
 			     QDF_MAC_ADDR_SIZE);
 	else
 		hdd_info("hw_mac is zero");
+#endif /*!SEC_READ_MACADDR_SYSFS*/
 
 	hdd_ctx->target_fw_version = cfg->target_fw_version;
 	hdd_ctx->target_fw_vers_ext = cfg->target_fw_vers_ext;
@@ -8298,11 +8377,19 @@ static void wlan_hdd_cache_chann_mutex_destroy(struct hdd_context *hdd_ctx)
 }
 #endif
 
+#ifdef SEC_CONFIG_POWER_BACKOFF
+extern int sec_sar_index;
+#endif /* SEC_CONFIG_POWER_BACKOFF */
+
 void hdd_wlan_exit(struct hdd_context *hdd_ctx)
 {
 	struct wiphy *wiphy = hdd_ctx->wiphy;
 
 	hdd_enter();
+
+#ifdef SEC_CONFIG_POWER_BACKOFF
+	sec_sar_index = 0;
+#endif /* SEC_CONFIG_POWER_BACKOFF */
 
 	hdd_debugfs_ini_config_deinit(hdd_ctx);
 	hdd_debugfs_mws_coex_info_deinit(hdd_ctx);
@@ -8533,6 +8620,9 @@ static int hdd_wiphy_init(struct hdd_context *hdd_ctx)
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 11, 0))
 	wiphy->wowlan = &wowlan_support_reg_init;
+#ifdef CONFIG_SEC
+	wiphy->wowlan_config = kmemdup(&wowlan_config, sizeof(wowlan_config), GFP_KERNEL);
+#endif /* CONFIG_SEC */
 #else
 	wiphy->wowlan.flags = WIPHY_WOWLAN_ANY |
 			      WIPHY_WOWLAN_MAGIC_PKT |
@@ -10254,6 +10344,9 @@ static void hdd_override_ini_config(struct hdd_context *hdd_ctx)
 
 	if (QDF_GLOBAL_MONITOR_MODE == cds_get_conparam())
 		hdd_override_all_ps(hdd_ctx);
+#ifdef SEC_CONFIG_PSM_SYSFS
+	hdd_sec_override_psm(hdd_ctx);
+#endif /* SEC_CONFIG_PSM_SYSFS */
 }
 
 #ifdef ENABLE_MTRACE_LOG
@@ -11146,6 +11239,9 @@ static int hdd_update_cds_config(struct hdd_context *hdd_ctx)
 	cds_cfg->enable_rxthread = hdd_ctx->enable_rxthread;
 	ucfg_mlme_get_sap_max_peers(hdd_ctx->psoc, &value);
 	cds_cfg->max_station = value;
+#ifdef SEC_WRITE_SOFTAP_INFO_IN_SYSFS
+	sec_max_station = cds_cfg->max_station;
+#endif //SEC_WRITE_SOFTAP_INFO_IN_SYSFS
 	cds_cfg->sub_20_channel_width = WLAN_SUB_20_CH_WIDTH_NONE;
 	cds_cfg->max_msdus_per_rxinorderind =
 		cfg_get(hdd_ctx->psoc, CFG_DP_MAX_MSDUS_PER_RXIND);
@@ -11489,6 +11585,21 @@ static uint8_t *hdd_get_platform_wlan_derived_mac_buff(struct device *dev,
 {
 	return pld_get_wlan_derived_mac_address(dev, num);
 }
+#ifdef SEC_READ_MACADDR_SYSFS
+/**
+ * hdd_set_platform_wlan_mac() - API to query platform driver
+ *                                    for MAC address
+ * @dev: Device Pointer
+ * @num: Number of Valid Mac address
+ *
+ * Return: Pointer to MAC address buffer
+ */
+static int hdd_set_platform_wlan_mac(const u8 *mac_list,
+					       const uint32_t len)
+{
+	return pld_set_wlan_mac_address(mac_list, len);
+}
+#endif /*SEC_READ_MACADDR_SYSFS*/
 
 /**
  * hdd_populate_random_mac_addr() - API to populate random mac addresses
@@ -11644,7 +11755,9 @@ static int hdd_update_mac_addr_to_fw(struct hdd_context *hdd_ctx)
  */
 static int hdd_initialize_mac_address(struct hdd_context *hdd_ctx)
 {
+#ifndef SEC_READ_MACADDR_SYSFS
 	QDF_STATUS status;
+#endif /*!SEC_READ_MACADDR_SYSFS*/
 	int ret;
 	bool update_mac_addr_to_fw = true;
 
@@ -11657,6 +11770,7 @@ static int hdd_initialize_mac_address(struct hdd_context *hdd_ctx)
 		return ret;
 	}
 
+#ifndef SEC_READ_MACADDR_SYSFS
 	status = hdd_update_mac_config(hdd_ctx);
 	if (QDF_IS_STATUS_SUCCESS(status)) {
 		hdd_info("using MAC address from wlan_mac.bin");
@@ -11682,6 +11796,7 @@ static int hdd_initialize_mac_address(struct hdd_context *hdd_ctx)
 		mac_addr.bytes[0] = 0x2;
 		hdd_update_macaddr(hdd_ctx, mac_addr, true);
 	}
+#endif /*!SEC_READ_MACADDR_SYSFS*/
 
 	if (update_mac_addr_to_fw) {
 		ret = hdd_update_mac_addr_to_fw(hdd_ctx);
@@ -13101,14 +13216,36 @@ static QDF_STATUS hdd_open_concurrent_interface(struct hdd_context *hdd_ctx)
 	QDF_STATUS status;
 	const char *iface_name;
 	uint8_t *mac_addr;
+#ifdef CONFIG_SEC
+	struct qdf_mac_addr mac_addr_swlan0;
+#endif /* CONFIG_SEC */
 
 	if (qdf_str_eq(hdd_ctx->config->enable_concurrent_sta, ""))
 		return QDF_STATUS_SUCCESS;
 
 	iface_name = hdd_ctx->config->enable_concurrent_sta;
+#ifdef CONFIG_SEC
+	if (hdd_ctx->num_provisioned_addr &&
+	    !(hdd_ctx->provisioned_mac_addr[0].bytes[0] & 0x02)) {
+		qdf_mem_copy(mac_addr_swlan0.bytes,
+			     hdd_ctx->provisioned_mac_addr[0].bytes,
+			     sizeof(tSirMacAddr));
+		mac_addr_swlan0.bytes[0] |= 0x02;
+		mac_addr_swlan0.bytes[4] ^= 0x40;
+	}
+	else {
+		hdd_err("failed to generating swlan0 mac addr.");
+		return QDF_STATUS_E_NOENT;
+	}
+
+	mac_addr = mac_addr_swlan0.bytes;
+	status = hdd_open_adapter_no_trans(hdd_ctx, QDF_SAP_MODE,
+					   iface_name, mac_addr);
+#else
 	mac_addr = wlan_hdd_get_intf_addr(hdd_ctx, QDF_STA_MODE);
 	status = hdd_open_adapter_no_trans(hdd_ctx, QDF_STA_MODE,
 					   iface_name, mac_addr);
+#endif /* CONFIG_SEC */
 	if (QDF_IS_STATUS_ERROR(status))
 		hdd_err("Failed to open concurrent station interface");
 
@@ -15390,6 +15527,303 @@ static void hdd_driver_unload(void)
 	hdd_qdf_deinit();
 }
 
+#if defined (SEC_READ_MACADDR_SYSFS) || defined (SEC_WRITE_VERSION_IN_SYSFS) || defined (SEC_WRITE_SOFTAP_INFO_IN_SYSFS) || defined (SEC_CONFIG_PSM_SYSFS) || defined (SEC_WRITE_ANT_GPIO_INFO_IN_SYSFS)
+/*
+ * 4.19: osif psoc sync replaced cds_ssr_protect()/cds_ssr_unprotect(), and
+ * hdd_loaded covers both the boot_wlan and the /dev/wlan loader.
+ */
+static ssize_t sec_sysfs_show(ssize_t (*show)(struct kobject *kobj,
+					      struct kobj_attribute *attr,
+					      char *buf),
+			      struct kobject *kobj,
+			      struct kobj_attribute *attr,
+			      char *buf)
+{
+	struct hdd_context *hdd_ctx = cds_get_context(QDF_MODULE_ID_HDD);
+	struct osif_psoc_sync *psoc_sync;
+	ssize_t ret_val;
+
+	if (!hdd_loaded || !hdd_ctx)
+		return 0;
+
+	ret_val = osif_psoc_sync_op_start(hdd_ctx->parent_dev, &psoc_sync);
+	if (ret_val)
+		return ret_val;
+
+	ret_val = show(kobj, attr, buf);
+
+	osif_psoc_sync_op_stop(psoc_sync);
+
+	return ret_val;
+}
+
+#if defined (SEC_READ_MACADDR_SYSFS)
+static ssize_t __show_mac_addr(struct kobject *kobj,
+				 struct kobj_attribute *attr,
+				 char *buf)
+{
+	int8_t i = 0;
+	struct hdd_context *hdd_ctx = cds_get_context(QDF_MODULE_ID_HDD);
+	int ret;
+
+	ret = wlan_hdd_validate_context(hdd_ctx);
+	if (ret) {
+		hdd_err("hdd ctx is invalid");
+		return ret;
+	}
+
+	if (i >= 0) {
+		return scnprintf(buf, PAGE_SIZE, QDF_MAC_ADDR_STR, QDF_MAC_ADDR_ARRAY(hdd_ctx->provisioned_mac_addr[0].bytes));
+	} else
+		return 0;
+}
+
+static ssize_t show_mac_addr(struct kobject *kobj,
+			       struct kobj_attribute *attr,
+			       char *buf)
+{
+	return sec_sysfs_show(__show_mac_addr, kobj, attr, buf);
+}
+
+static ssize_t store_mac_addr(struct kobject *kobj,
+			    struct kobj_attribute *attr,
+			    const char *buf,
+			    size_t count)
+{
+	/* 4.19: consume the write; 0 makes write(2) retry forever */
+	ssize_t ret_val = count;
+
+	sscanf(buf, "%02X:%02X:%02X:%02X:%02X:%02X",
+		(unsigned int *)&(sec_mac_addrs[0].bytes[0]), (unsigned int *)&(sec_mac_addrs[0].bytes[1]),
+		(unsigned int *)&(sec_mac_addrs[0].bytes[2]), (unsigned int *)&(sec_mac_addrs[0].bytes[3]),
+		(unsigned int *)&(sec_mac_addrs[0].bytes[4]), (unsigned int *)&(sec_mac_addrs[0].bytes[5]));
+
+	hdd_info("Assigning MAC from Macloader - sec_mac_addrs[0]:"QDF_MAC_ADDR_STR,
+		QDF_MAC_ADDR_ARRAY(sec_mac_addrs[0].bytes));
+	hdd_set_platform_wlan_mac(sec_mac_addrs[0].bytes, QDF_MAC_ADDR_SIZE);
+	return ret_val;
+}
+#endif
+
+static ssize_t __show_verinfo(struct kobject *kobj,
+				 struct kobj_attribute *attr,
+				 char *buf)
+{
+	struct hdd_context *hdd_ctx = cds_get_context(QDF_MODULE_ID_HDD);
+	int ret;
+
+	ret = wlan_hdd_validate_context(hdd_ctx);
+	if (ret) {
+		hdd_err("hdd ctx is invalid");
+		return ret;
+	}
+
+	return scnprintf(buf, PAGE_SIZE,
+			   "HostSW:%s, "
+			   "FW:%d.%d.%d.%d.%d.%d, "
+			   "HW:%s,"
+			   "BoardVersion:%x"
+			   "RefdesignID:%x"
+			   "CustomerID:%x"
+			   "ProjectID:%x"
+			   "BoardDataRev:%x\n",
+			   QWLAN_VERSIONSTR,
+			   hdd_ctx->fw_version_info.major_spid,
+			   hdd_ctx->fw_version_info.minor_spid,
+			   hdd_ctx->fw_version_info.siid,
+			   hdd_ctx->fw_version_info.rel_id,
+			   hdd_ctx->fw_version_info.crmid,
+			   hdd_ctx->fw_version_info.sub_id,
+			   hdd_ctx->target_hw_name,
+			   hdd_ctx->hw_bd_info.bdf_version,
+			   hdd_ctx->hw_bd_info.ref_design_id,
+			   hdd_ctx->hw_bd_info.customer_id,
+			   hdd_ctx->hw_bd_info.project_id,
+			   hdd_ctx->hw_bd_info.board_data_rev);
+}
+
+static ssize_t show_verinfo(struct kobject *kobj,
+			       struct kobj_attribute *attr,
+			       char *buf)
+{
+	return sec_sysfs_show(__show_verinfo, kobj, attr, buf);
+}
+
+static ssize_t __show_softapinfo(struct kobject *kobj,
+				 struct kobj_attribute *attr,
+				 char *buf)
+{
+	struct hdd_context *hdd_ctx = cds_get_context(QDF_MODULE_ID_HDD);
+	int ret;
+
+	ret = wlan_hdd_validate_context(hdd_ctx);
+	if (ret) {
+		hdd_err("hdd ctx is invalid");
+		return ret;
+	}
+
+	return scnprintf(buf, PAGE_SIZE,
+		"#softap.info\nDualBandConcurrency=%s\n5G=%s\nmaxClient=%d\nHalFn_setCountryCodeHal=%s\nHalFn_getValidChannels=%s\nDualInterface=%s\n",
+		policy_mgr_is_hw_dbs_capable(hdd_ctx->psoc) ? "yes" : "no",
+		hdd_is_5g_supported(hdd_ctx) ? "yes" : "no",
+		sec_max_station,
+		"yes",
+		"yes",
+		"yes"
+		);
+}
+
+static ssize_t show_softapinfo(struct kobject *kobj,
+			       struct kobj_attribute *attr,
+			       char *buf)
+{
+	return sec_sysfs_show(__show_softapinfo, kobj, attr, buf);
+}
+
+static ssize_t __show_qcwlanstate(struct kobject *kobj,
+                                struct kobj_attribute *attr,
+                                char *buf)
+{
+       char status[BUF_LEN];
+       static const char wlan_off_str[] = "OFF";
+       static const char wlan_on_str[] = "ON";
+       struct hdd_context *hdd_ctx = cds_get_context(QDF_MODULE_ID_HDD);
+       int ret;
+
+       ret = wlan_hdd_validate_context(hdd_ctx);
+       if (ret) {
+               hdd_err("hdd ctx is invalid");
+               return ret;
+       }
+
+       switch (hdd_ctx->driver_status) {
+               case DRIVER_MODULES_UNINITIALIZED:
+               case DRIVER_MODULES_CLOSED:
+                       hdd_info("Modules not initialized just return");
+                       memset(status, '\0', sizeof("OFF"));
+                       memcpy(status, wlan_off_str, sizeof("OFF"));
+                       break;
+               case DRIVER_MODULES_ENABLED:
+                       hdd_info("Modules enabled");
+                       memset(status, '\0', sizeof("ON"));
+                       memcpy(status, wlan_on_str, sizeof("ON"));
+                       break;
+       }
+
+       return scnprintf(buf, PAGE_SIZE, "%s", status);
+}
+
+static ssize_t show_qcwlanstate(struct kobject *kobj,
+                              struct kobj_attribute *attr,
+                              char *buf)
+{
+       return sec_sysfs_show(__show_qcwlanstate, kobj, attr, buf);
+}
+
+static ssize_t store_pm_info(struct kobject *kobj,
+			    struct kobj_attribute *attr,
+			    const char *buf,
+			    size_t count)
+{
+	/* 4.19: consume the write; 0 makes write(2) retry forever */
+	ssize_t ret_val = count;
+	int rfmode = 0;
+
+	if (hdd_loaded) {
+		sscanf(buf, "%d", (int *) &rfmode);
+		printk("[WIFI] PSM info was set from Macloader : %d",rfmode);
+		sec_rfmode_off = rfmode;
+	}
+	return ret_val;
+}
+
+int wlan_hdd_sec_get_psm(void)
+{
+	return sec_rfmode_off;
+}
+
+#if defined (SEC_WRITE_ANT_GPIO_INFO_IN_SYSFS)
+#if defined (SEC_CONFIG_SUPPORT_MIMO)
+static ssize_t show_wificableinfo(struct kobject *kobj,
+				 struct kobj_attribute *attr,
+				 char *buf)
+{
+	struct device_node *np;
+	int wifi_cable1 = 0;
+	int wifi_cable2 = 0;
+	np = of_find_compatible_node(NULL, NULL, "samsung,rome_cable");
+
+	if (!np) {
+		printk(KERN_ERR "[WIFI] %s : can not fine the rome_cable\n",__FUNCTION__);
+		return 0;
+	}
+
+	wifi_cable1 = of_get_named_gpio(np, "wlan_cable_wifi1", 0);
+	wifi_cable2 = of_get_named_gpio(np, "wlan_cable_wifi2", 0);
+
+	printk(KERN_INFO "%s : gpio=%d value = %d \n",__FUNCTION__, wifi_cable1, gpio_get_value(wifi_cable1));
+	printk(KERN_INFO "%s : gpio=%d value = %d \n",__FUNCTION__, wifi_cable2, gpio_get_value(wifi_cable2));
+
+	printk(KERN_ERR "%s : gpio=%d value = %d \n",__FUNCTION__, wifi_cable1, gpio_get_value(wifi_cable1));
+	printk(KERN_ERR "%s : gpio=%d value = %d \n",__FUNCTION__, wifi_cable2, gpio_get_value(wifi_cable2));
+
+	return scnprintf(buf, PAGE_SIZE, "%c%c\n", (gpio_get_value(wifi_cable1) > 0) ? 'D' : 'E', (gpio_get_value(wifi_cable2) > 0) ? 'D' : 'E');
+}
+#else
+static ssize_t show_wificableinfo(struct kobject *kobj,
+				struct kobj_attribute *attr,
+				char *buf)
+{
+	struct device_node *np;
+	int wifi_cable = 0;
+	np = of_find_compatible_node(NULL, NULL, "samsung,rome_cable");
+
+	if (!np) {
+		printk(KERN_ERR "[WIFI] %s : can not fine the rome_cable\n",__FUNCTION__);
+		return 0;
+	}
+
+	wifi_cable = of_get_named_gpio(np, "wlan_cable_wifi", 0);
+	printk(KERN_INFO "%s : gpio=%d value = %d \n",__FUNCTION__, wifi_cable, gpio_get_value(wifi_cable));
+
+	printk(KERN_ERR "%s : gpio=%d value = %d \n",__FUNCTION__, wifi_cable, gpio_get_value(wifi_cable));
+
+	return scnprintf(buf, PAGE_SIZE, "%c\n", (gpio_get_value(wifi_cable) > 0) ? 'D' : 'E');
+}
+#endif
+#endif /* #if defined (SEC_CONFIG_SUPPORT_MIMO) */
+
+void sec_sysfs_destroy(void)
+{
+	if (sec_sysfs_kobject) {
+		kobject_put(sec_sysfs_kobject);
+		sec_sysfs_kobject = NULL;
+	}
+}
+
+void sec_sysfs_create(void)
+{
+	int error = 0;
+
+	sec_sysfs_kobject = kobject_create_and_add("wifi", NULL);
+	if (!sec_sysfs_kobject) {
+		hdd_err("could not allocate sec_sysfs kobject");
+		return;
+	}
+
+	error = sysfs_create_group(sec_sysfs_kobject, &sec_sysfs_attr_group);
+	if (error) {
+		hdd_err("could not create group");
+		goto error_sec_sysfs_kobject;
+	}
+
+	return;
+
+error_sec_sysfs_kobject:
+	kobject_put(sec_sysfs_kobject);
+	sec_sysfs_kobject = NULL;
+}
+#endif /* SEC_READ_MACADDR_SYSFS || SEC_WRITE_VERSION_IN_SYSFS || SEC_WRITE_SOFTAP_INFO_IN_SYSFS || SEC_CONFIG_PSM_SYSFS || SEC_WRITE_ANT_GPIO_INFO_IN_SYSFS */
 #ifndef MODULE
 /**
  * hdd_fln() - logging macro for before/after qdf logging is initialized
@@ -15549,6 +15983,9 @@ static int hdd_module_init(void)
 	if (wlan_init_sysfs())
 		pr_err("Failed to create boot_wlan sysfs entry\n");
 #endif
+#if defined (SEC_READ_MACADDR_SYSFS) || defined (SEC_WRITE_VERSION_IN_SYSFS) || defined (SEC_WRITE_SOFTAP_INFO_IN_SYSFS) || defined (SEC_CONFIG_PSM_SYSFS) || defined (SEC_WRITE_ANT_GPIO_INFO_IN_SYSFS)
+	sec_sysfs_create();
+#endif /* SEC_READ_MACADDR_SYSFS || SEC_WRITE_VERSION_IN_SYSFS || SEC_WRITE_SOFTAP_INFO_IN_SYSFS || SEC_CONFIG_PSM_SYSFS || SEC_WRITE_ANT_GPIO_INFO_IN_SYSFS */
 
 	return ret;
 }
@@ -15566,6 +16003,9 @@ static void __exit hdd_module_exit(void)
 #ifndef MODULE
 	wlan_deinit_sysfs();
 #endif
+#if defined (SEC_READ_MACADDR_SYSFS) || defined (SEC_WRITE_VERSION_IN_SYSFS) || defined (SEC_WRITE_SOFTAP_INFO_IN_SYSFS) || defined (SEC_CONFIG_PSM_SYSFS) || defined (SEC_WRITE_ANT_GPIO_INFO_IN_SYSFS)
+	sec_sysfs_destroy();
+#endif /* SEC_READ_MACADDR_SYSFS || SEC_WRITE_VERSION_IN_SYSFS || SEC_WRITE_SOFTAP_INFO_IN_SYSFS || SEC_CONFIG_PSM_SYSFS || SEC_WRITE_ANT_GPIO_INFO_IN_SYSFS */
 }
 
 static int fwpath_changed_handler(const char *kmessage,

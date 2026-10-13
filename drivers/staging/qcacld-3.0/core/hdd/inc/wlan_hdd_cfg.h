@@ -318,4 +318,20 @@ bool hdd_dfs_indicate_radar(struct hdd_context *hdd_ctx);
  * Return: None
  */
 void hdd_override_all_ps(struct hdd_context *hdd_ctx);
+
+#ifdef SEC_CONFIG_PSM_SYSFS
+/**
+ * hdd_sec_override_psm() - Samsung PSM off overrides
+ * @hdd_ctx: Pointer to HDD context.
+ *
+ * Samsung's 4.4 hdd_apply_cfg_ini() forced gEnableImps, gEnableBmps,
+ * FastRoamEnabled, FastTransitionEnabled and hostArpOffload to 0 when
+ * macloader wrote 0 to /sys/wifi/pm (TRP/TIS tests). The converged cfg
+ * store replaced hdd_apply_cfg_ini(), so this overrides the stored values
+ * before the components read them at psoc open.
+ *
+ * Return: None
+ */
+void hdd_sec_override_psm(struct hdd_context *hdd_ctx);
+#endif /* SEC_CONFIG_PSM_SYSFS */
 #endif

@@ -7648,6 +7648,77 @@ static int drv_cmd_get_disable_chan_list(struct hdd_adapter *adapter,
 	return 0;
 }
 #endif
+
+#ifdef SEC_CONFIG_POWER_BACKOFF
+
+#define WLAN_HDD_UI_SET_GRIP_TX_PWR_VALUE_OFFSET 21
+int sec_sar_index = 0;
+
+int hdd_set_sar_power_limit(struct hdd_context *hdd_ctx, uint8_t index, bool enable)
+{
+	int status = 0;
+	struct sar_limit_cmd_params sar_limit_cmd = {0};
+	mac_handle_t mac_handle;
+
+	/* Vendor command manadates all SAR Specs in single call */
+	sar_limit_cmd.commit_limits = 1;
+	sar_limit_cmd.num_limit_rows = 0;
+
+	if (enable) {
+		sec_sar_index |= (1 << index);
+	} else {
+		sec_sar_index &= ~(1 << index);
+	}
+
+	hdd_info("sec_sar_index 0x%x - 0: no backoff, 1: grip, 2: dbs, 3: grip+dbs", sec_sar_index);
+
+	if (!sec_sar_index) {
+		sar_limit_cmd.sar_enable = WMI_SAR_FEATURE_OFF;
+	} else if (sec_sar_index == (1 << SAR_POWER_LIMIT_FOR_GRIP_SENSOR)) {
+		sar_limit_cmd.sar_enable = WMI_SAR_FEATURE_ON_SET_0;
+	} else if (sec_sar_index == (1 << SAR_POWER_LIMIT_FOR_DBS)) {
+		sar_limit_cmd.sar_enable = WMI_SAR_FEATURE_ON_SET_1;
+	} else if (sec_sar_index == (1 << SAR_POWER_LIMIT_FOR_GRIP_SENSOR |
+				   1 << SAR_POWER_LIMIT_FOR_DBS)) {
+		sar_limit_cmd.sar_enable = WMI_SAR_FEATURE_ON_SET_2;
+	}
+
+	hdd_info("sar_enable = %d", sar_limit_cmd.sar_enable);
+
+	mac_handle = hdd_ctx->mac_handle;
+	status = sme_set_sar_power_limits(mac_handle, &sar_limit_cmd);
+	if (status < 0)
+		hdd_err("Failed to sme_set_sar_power_limits status %d", status);
+
+	return status;
+}
+
+static int drv_cmd_grip_power_set_tx_power_calling(struct hdd_adapter *adapter,
+			 struct hdd_context *hdd_ctx,
+			 uint8_t *command,
+			 uint8_t command_len,
+			 struct hdd_priv_data *priv_data)
+{
+	int status = 0;
+	uint8_t set_value;
+
+	hdd_info("command %s UL %d, TL %d", command, priv_data->used_len,
+		 priv_data->total_len);
+
+	/* convert the value from ascii to integer */
+	set_value = command[WLAN_HDD_UI_SET_GRIP_TX_PWR_VALUE_OFFSET] - '0';
+
+	if (!set_value) {
+		hdd_set_sar_power_limit(hdd_ctx, SAR_POWER_LIMIT_FOR_GRIP_SENSOR, 1);
+	} else {
+		hdd_set_sar_power_limit(hdd_ctx, SAR_POWER_LIMIT_FOR_GRIP_SENSOR, 0);
+	}
+	/* << test code */
+
+	return status;
+}
+#endif /* SEC_CONFIG_POWER_BACKOFF */
+
 /*
  * The following table contains all supported WLAN HDD
  * IOCTL driver commands and the handler for each of them.
@@ -7763,9 +7834,17 @@ static const struct hdd_drv_cmd hdd_drv_cmds[] = {
 	{"CHANNEL_SWITCH",            drv_cmd_set_channel_switch, true},
 	{"SETANTENNAMODE",            drv_cmd_set_antenna_mode, true},
 	{"GETANTENNAMODE",            drv_cmd_get_antenna_mode, false},
+#ifdef CONFIG_SEC
+	{"SET_INDOOR_CHANNELS",       drv_cmd_set_disable_chan_list, true},
+	{"GET_INDOOR_CHANNELS",       drv_cmd_get_disable_chan_list, false},
+#else
 	{"SET_DISABLE_CHANNEL_LIST",  drv_cmd_set_disable_chan_list, true},
 	{"GET_DISABLE_CHANNEL_LIST",  drv_cmd_get_disable_chan_list, false},
-	{"STOP",                      drv_cmd_dummy, false},
+#endif /* CONFIG_SEC */
+#ifdef SEC_CONFIG_POWER_BACKOFF
+	{"SET_TX_POWER_CALLING",      drv_cmd_grip_power_set_tx_power_calling},
+#endif /* SEC_CONFIG_POWER_BACKOFF */
+	{"STOP",                    drv_cmd_dummy, false},
 	/* Deprecated commands */
 	{"RXFILTER-START",            drv_cmd_dummy, false},
 	{"RXFILTER-STOP",             drv_cmd_dummy, false},
