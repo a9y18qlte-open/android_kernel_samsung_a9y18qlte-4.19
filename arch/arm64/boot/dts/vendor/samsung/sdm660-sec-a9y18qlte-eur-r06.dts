@@ -55,15 +55,3 @@
 		};
 	};
 };
-
-/*
- * spi_3 (BLSP1 QUP3, 0xc177000) is the fingerprint (ET5XX) bus and is owned
- * by TrustZone. Samsung's 4.4 spi_qsd skips setup for it
- * (ENABLE_SENSORS_FPRINT_SECURE, SENSORS_FP_SPI_NUMBER=3); the stock 4.19
- * driver touches the QUP and hangs the bus. TODO: port that handling with
- * the ET5XX driver; disabled until then. Kept here, after the fingerprint
- * dtsi that enables it.
- */
-&spi_3 {
-	status = "disabled";
-};
