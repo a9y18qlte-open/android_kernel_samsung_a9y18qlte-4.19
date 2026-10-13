@@ -3504,7 +3504,7 @@ int dwc_msm_vbus_event(bool enable)
 	}
 	mdwc->vbus_active = enable;
 
-	if (dwc->dr_mode == USB_DR_MODE_DRD && !mdwc->in_restart) {
+	if (dwc3_is_otg_or_drd(dwc) && !mdwc->in_restart) {
 		dbg_event(0xFF, "Q RW (vbus)", mdwc->vbus_active);
 		queue_work(mdwc->dwc3_wq, &mdwc->resume_work);
 	}
