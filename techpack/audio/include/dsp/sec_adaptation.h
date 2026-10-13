@@ -76,4 +76,16 @@ int q6afe_pack_and_set_param_in_band(u16 port_id, int index,
 
 int q6audio_get_afe_cal_validation(u16 port_id, u32 topology_id);
 
+/****************************************************************************/
+/*//////////////////////////// VOICE SOLUTION //////////////////////////////*/
+/****************************************************************************/
+/* NXP LVVEFQ */
+#define VPM_TX_SM_LVVEFQ_COPP_TOPOLOGY      0x1000BFF0
+#define VPM_TX_DM_LVVEFQ_COPP_TOPOLOGY      0x1000BFF1
+#define VPM_TX_SM_LVSAFQ_COPP_TOPOLOGY      0x1000BFF4
+/* Fotemeia */
+#define VOICE_TX_DIAMONDVOICE_FVSAM_SM      0x1000110B
+#define VOICE_TX_DIAMONDVOICE_FVSAM_DM      0x1000110A
+#define VOICE_TX_DIAMONDVOICE_FVSAM_QM      0x10001109
+
 #endif /* __SEC_ADAPTATION_H */
