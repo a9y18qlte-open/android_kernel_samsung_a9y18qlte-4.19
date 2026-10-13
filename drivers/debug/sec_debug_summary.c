@@ -20,12 +20,15 @@
 #include <linux/module.h>
 #include <linux/ptrace.h>
 #include <linux/sched.h>
+#include <linux/sched/clock.h>
 
 #include <asm/irq.h>
 #include <asm/processor.h>
 #include <asm/memory.h>
+#include <asm/stacktrace.h>
 
-#include <soc/qcom/smem.h>
+#include <linux/soc/qcom/smem.h>
+#include <linux/sec_smem.h>
 
 #include <linux/sec_bsp.h>
 #include <linux/sec_debug.h>
@@ -462,10 +465,15 @@ int sec_debug_is_modem_separate_debug_ssr(void)
 int summary_set_task_info(struct sec_debug_summary_data_apss *apss)
 {
 	apss->task.stack_size = THREAD_SIZE;
-	apss->task.start_sp = THREAD_START_SP;
-	apss->task.irq_stack.pcpu_stack = (uint64_t)&irq_stack;
+	/* 4.4's THREAD_START_SP and IRQ_STACK_START_SP */
+	apss->task.start_sp = THREAD_SIZE - 16;
+	/*
+	 * 4.19 allocates the IRQ stacks at boot: this per-cpu variable holds
+	 * a pointer to the stack, where 4.4's irq_stack was the stack itself.
+	 */
+	apss->task.irq_stack.pcpu_stack = (uint64_t)&irq_stack_ptr;
 	apss->task.irq_stack.size = IRQ_STACK_SIZE;
-	apss->task.irq_stack.start_sp = IRQ_STACK_START_SP;
+	apss->task.irq_stack.start_sp = IRQ_STACK_SIZE - 16;
 
 	apss->task.ti.struct_size = sizeof(struct thread_info);
 	SET_MEMBER_TYPE_INFO(&apss->task.ti.flags, struct thread_info, flags);
@@ -539,20 +547,25 @@ int __init sec_debug_summary_init(void)
 #ifdef CONFIG_SEC_DEBUG_VERBOSE_SUMMARY_HTML
 	short i;
 #endif
+	int ret;
 
 	pr_info("SMEM_ID_VENDOR0=0x%x size=0x%lx\n",
 		(unsigned int)SMEM_ID_VENDOR2,
 		sizeof(struct sec_debug_summary));
 
 	/* set summary address in smem for other subsystems to see */
-	secdbg_summary = (struct sec_debug_summary *)smem_alloc(
-		SMEM_ID_VENDOR2,
-		sizeof(struct sec_debug_summary),
-		0,
-		SMEM_ANY_HOST_FLAG);
+	ret = qcom_smem_alloc(QCOM_SMEM_HOST_ANY, SMEM_ID_VENDOR2,
+			      sizeof(struct sec_debug_summary));
+	if (ret && ret != -EEXIST) {
+		pr_info("smem alloc failed! %d\n", ret);
+		return ret;
+	}
+	secdbg_summary = (struct sec_debug_summary *)qcom_smem_get(
+		QCOM_SMEM_HOST_ANY, SMEM_ID_VENDOR2, NULL);
 
-	if (secdbg_summary == NULL) {
-		pr_info("smem alloc failed!\n");
+	if (IS_ERR_OR_NULL(secdbg_summary)) {
+		pr_info("smem get failed!\n");
+		secdbg_summary = NULL;
 		return -ENOMEM;
 	}
 
@@ -564,13 +577,13 @@ int __init sec_debug_summary_init(void)
 	secdbg_apss = &secdbg_summary->priv.apss;
 
 	secdbg_summary->apss = (struct sec_debug_summary_data_apss *)
-	    (smem_virt_to_phys(&secdbg_summary->priv.apss)&0xFFFFFFFF);
+	    (qcom_smem_virt_to_phys(&secdbg_summary->priv.apss)&0xFFFFFFFF);
 	secdbg_summary->rpm = (struct sec_debug_summary_data *)
-		(smem_virt_to_phys(&secdbg_summary->priv.rpm)&0xFFFFFFFF);
+		(qcom_smem_virt_to_phys(&secdbg_summary->priv.rpm)&0xFFFFFFFF);
 	secdbg_summary->modem = (struct sec_debug_summary_data_modem *)
-		(smem_virt_to_phys(&secdbg_summary->priv.modem)&0xFFFFFFFF);
+		(qcom_smem_virt_to_phys(&secdbg_summary->priv.modem)&0xFFFFFFFF);
 	secdbg_summary->dsps = (struct sec_debug_summary_data *)
-		(smem_virt_to_phys(&secdbg_summary->priv.dsps)&0xFFFFFFFF);
+		(qcom_smem_virt_to_phys(&secdbg_summary->priv.dsps)&0xFFFFFFFF);
 
 	pr_info("apss(%lx) rpm(%lx) modem(%lx) dsps(%lx)\n",
 		(unsigned long)secdbg_summary->apss,

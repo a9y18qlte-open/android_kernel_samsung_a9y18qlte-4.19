@@ -22,6 +22,9 @@
 #include <asm/timex.h>
 #include <soc/qcom/minidump.h>
 
+#include <linux/sec_debug.h>
+#include <linux/sec_debug_summary.h>
+
 #define SENTINEL_BYTE_1 0xFF
 #define SENTINEL_BYTE_2 0xAA
 #define SENTINEL_BYTE_3 0xFF
@@ -74,6 +77,41 @@ static struct msm_rtb_state msm_rtb = {
 
 module_param_named(filter, msm_rtb.filter, uint, 0644);
 module_param_named(enable, msm_rtb.enabled, int, 0644);
+
+#ifdef CONFIG_SEC_DEBUG_SUMMARY
+#define __set_rtb_state_info(name, member)				\
+	do {								\
+		WRITE_ONCE(apss->iolog.rtb_state.name.size, (uint16_t)sizeof(msm_rtb.member)); \
+		WRITE_ONCE(apss->iolog.rtb_state.name.offset, (uint16_t)offsetof(struct msm_rtb_state, member)); \
+	} while (0)
+#define __set_rtb_entry_info(name, member)				\
+	do {								\
+		WRITE_ONCE(apss->iolog.rtb_entry.name.size, (uint16_t)sizeof(((struct msm_rtb_layout *)0)->member)); \
+		WRITE_ONCE(apss->iolog.rtb_entry.name.offset, (uint16_t)offsetof(struct msm_rtb_layout, member)); \
+	} while (0)
+
+void sec_debug_summary_set_rtb_info(struct sec_debug_summary_data_apss *apss)
+{
+	WRITE_ONCE(apss->iolog.rtb_state_pa, (uint64_t)__pa_symbol(&msm_rtb));
+
+	__set_rtb_state_info(rtb_phys, phys);
+	__set_rtb_state_info(nentries, nentries);
+	__set_rtb_state_info(size, size);
+	__set_rtb_state_info(enabled, enabled);
+	__set_rtb_state_info(initialized, initialized);
+	__set_rtb_state_info(step_size, step_size);
+
+	WRITE_ONCE(apss->iolog.rtb_entry.struct_size, sizeof(struct msm_rtb_layout));
+	__set_rtb_entry_info(log_type, log_type);
+	__set_rtb_entry_info(idx, idx);
+	__set_rtb_entry_info(caller, caller);
+	__set_rtb_entry_info(data, data);
+	__set_rtb_entry_info(timestamp, timestamp);
+
+	WRITE_ONCE(apss->iolog.rtb_pcpu_idx_pa, __pa_symbol(&msm_rtb_idx_cpu));
+
+}
+#endif /* CONFIG_SEC_DEBUG_SUMMARY */
 
 static int msm_rtb_panic_notifier(struct notifier_block *this,
 					unsigned long event, void *ptr)
