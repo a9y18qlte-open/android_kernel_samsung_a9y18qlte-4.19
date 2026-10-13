@@ -45,8 +45,8 @@ static const char * const power_supply_type_text[] = {
 	"USB_DCP", "USB_CDP", "USB_ACA", "USB_C",
 	"USB_PD", "USB_PD_DRP", "BrickID",
 	"USB_HVDCP", "USB_HVDCP_3", "USB_HVDCP_3P5", "Wireless", "USB_FLOAT",
-	"BMS", "Parallel", "Main", "USB_C_UFP", "USB_C_DFP",
-	"Charge_Pump",
+	"BMS", "Parallel", "Main", "Wipower", "USB_C_UFP", "USB_C_DFP",
+	"Charge_Pump", "POWER_SHARING", "OTG",
 };
 
 static const char * const power_supply_usb_type_text[] = {
@@ -59,13 +59,14 @@ static const char * const power_supply_status_text[] = {
 };
 
 static const char * const power_supply_charge_type_text[] = {
-	"Unknown", "N/A", "Trickle", "Fast", "Taper"
+	"Unknown", "N/A", "Trickle", "Fast", "Taper", "Slow"
 };
 
 static const char * const power_supply_health_text[] = {
 	"Unknown", "Good", "Overheat", "Dead", "Over voltage",
 	"Unspecified failure", "Cold", "Watchdog timer expire",
-	"Safety timer expire", "Over current", "Warm", "Cool", "Hot"
+	"Safety timer expire", "Over current", "Warm", "Cool", "Hot",
+	"Under voltage", "OverheatLimit"
 };
 
 static const char * const power_supply_technology_text[] = {
