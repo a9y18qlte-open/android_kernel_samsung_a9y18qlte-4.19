@@ -172,6 +172,21 @@ static int ngd_slim_qmi_new_server(struct qmi_handle *hdl,
 	qmi->svc_info.sq_port = service->port;
 	complete(&dev->qmi_up);
 
+	/*
+	 * Bring the NGD up when the ADSP slimbus QMI service arrives, as 4.4
+	 * did on QMI_SERVER_ARRIVE. The SSR/PDR notifier alone misses the
+	 * first ADSP boot when the service locator answers after the ADSP
+	 * is already up and the SSR fallback is registered too late.
+	 */
+	pm_stay_awake(dev->dev);
+	atomic_set(&dev->init_in_progress, 1);
+	if (dev->lpass_mem_usage) {
+		dev->lpass_mem->start = dev->lpass_phy_base;
+		dev->lpass.base = dev->lpass_virt_base;
+	}
+	atomic_set(&dev->ssr_in_progress, 0);
+	schedule_work(&dev->dsp.dom_up);
+
 	return 0;
 }
 
