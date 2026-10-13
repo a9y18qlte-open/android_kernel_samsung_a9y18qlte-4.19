@@ -1318,4 +1318,10 @@ config SND_SOC_TFA9872
 	help
 	TFA9872 driver
 
+config SEC_SND_ADAPTATION
+	tristate "Samsung ADSP Adaptation"
+	default n
+	help
+		To add support for Samsung ADSP solution
+
 endmenu

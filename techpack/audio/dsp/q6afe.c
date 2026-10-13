@@ -24,6 +24,10 @@
 #include "adsp_err.h"
 #include "q6afecal-hwdep.h"
 
+#ifdef CONFIG_SEC_SND_ADAPTATION
+#include <dsp/sec_adaptation.h>
+#endif
+
 #define WAKELOCK_TIMEOUT	5000
 #define AFE_CLK_TOKEN	1024
 
@@ -1730,10 +1734,15 @@ static int q6afe_set_params(u16 port_id, int index,
 		return q6afe_set_params_v2(port_id, index, mem_hdr,
 					   packed_param_data, packed_data_size);
 }
-
+#ifdef CONFIG_SND_SOC_TFA9872
+int q6afe_pack_and_set_param_in_band(u16 port_id, int index,
+					    struct param_hdr_v3 param_hdr,
+					    u8 *param_data)
+#else
 static int q6afe_pack_and_set_param_in_band(u16 port_id, int index,
 					    struct param_hdr_v3 param_hdr,
 					    u8 *param_data)
+#endif
 {
 	u8 *packed_param_data = NULL;
 	int packed_data_size = sizeof(union param_hdrs) + param_hdr.param_size;

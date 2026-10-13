@@ -94,5 +94,19 @@ static inline void digital_cdc_rsc_mgr_exit(void)
 }
 #endif /* CONFIG_DIGITAL_CDC_RSC_MGR */
 
+#ifdef CONFIG_SEC_SND_ADAPTATION
+int sec_soc_platform_init(void);
+void sec_soc_platform_exit(void);
+#else
+static inline int sec_soc_platform_init(void)
+{
+	return 0;
+}
+
+static inline void sec_soc_platform_exit(void)
+{
+}
+#endif /* CONFIG_SEC_SND_ADAPTATION */
+
 #endif
 

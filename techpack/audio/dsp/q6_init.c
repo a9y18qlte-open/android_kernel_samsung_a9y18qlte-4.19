@@ -25,11 +25,13 @@ static int __init audio_q6_init(void)
 	msm_mdf_init();
 	voice_mhi_init();
 	digital_cdc_rsc_mgr_init();
+	sec_soc_platform_init();
 	return 0;
 }
 
 static void __exit audio_q6_exit(void)
 {
+	sec_soc_platform_exit();
 	digital_cdc_rsc_mgr_exit();
 	msm_mdf_exit();
 	avtimer_exit();
