@@ -350,7 +350,9 @@
 	/* Thermistor table */
 	sec_thermistor@0 {
 		compatible = "samsung,sec-ap-thermistor";
-		qcom,therm-vadc = <&pm660_vadc>;
+		/* 4.19: ADC5 IIO channel instead of qcom,therm-vadc */
+		io-channels = <&pm660_vadc ADC_AMUX_THM1_PU2>;
+		io-channel-names = "therm";
 		status = "okay";
 		adc_channel = <0x4d>;
 		unused_mux_sel;
@@ -366,7 +368,8 @@
 	/* PA Thermistor table */
 	sec_thermistor@2 {
 		compatible = "samsung,sec-pa-thermistor";
-		qcom,therm-vadc = <&pm660_vadc>;
+		io-channels = <&pm660_vadc ADC_AMUX_THM3_PU2>;
+		io-channel-names = "therm";
 		status = "okay";
 		adc_channel = <0x4f>;
 		unused_mux_sel;
@@ -382,7 +385,8 @@
 	/* WIFI Thermistor table */
 	sec_thermistor@3 {
 		compatible = "samsung,sec-wf-thermistor";
-		qcom,therm-vadc = <&pm660_vadc>;
+		io-channels = <&pm660_vadc 0x59>;	/* gpio12_adc */
+		io-channel-names = "therm";
 		status = "okay";
 		adc_channel = <0x59>;
 		unused_mux_sel;
