@@ -130,6 +130,8 @@ struct msm_asoc_mach_data {
 	struct delayed_work disable_int_mclk0_work;
 	struct afe_clk_set digital_cdc_core_clk;
 	struct msm_snd_interrupt msm_snd_intr_lpi;
+	int dmic_ldo_en;
+	int fm_lna_en;
 };
 
 int msm_common_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
