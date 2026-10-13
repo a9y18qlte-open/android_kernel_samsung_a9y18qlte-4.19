@@ -266,7 +266,7 @@ static int msm_dig_cdc_codec_config_compander(
 		dig_cdc->set_compander_mode(dig_cdc->handle, 0x08);
 		/* Enable Compander Clock */
 		snd_soc_component_update_bits(component,
-			MSM89XX_CDC_CORE_COMP0_B2_CTL, 0x0F, 0x09);
+			MSM89XX_CDC_CORE_COMP0_B2_CTL, 0x0F, 0x0D);
 		snd_soc_component_update_bits(component,
 			MSM89XX_CDC_CORE_CLK_RX_B2_CTL, 0x01, 0x01);
 		if (dig_cdc->comp_enabled[MSM89XX_RX1]) {
@@ -284,11 +284,11 @@ static int msm_dig_cdc_codec_config_compander(
 		snd_soc_component_update_bits(component,
 			MSM89XX_CDC_CORE_COMP0_B2_CTL, 0xF0, 0x50);
 		/* add sleep for compander to settle */
-		usleep_range(1000, 1100);
+		usleep_range(5000, 5100);
 		snd_soc_component_update_bits(component,
 			MSM89XX_CDC_CORE_COMP0_B3_CTL, 0xFF, 0x28);
 		snd_soc_component_update_bits(component,
-			MSM89XX_CDC_CORE_COMP0_B2_CTL, 0xF0, 0xB0);
+			MSM89XX_CDC_CORE_COMP0_B2_CTL, 0xF0, 0xF0);
 
 		/* Enable Compander GPIO */
 		if (dig_cdc->codec_hph_comp_gpio)

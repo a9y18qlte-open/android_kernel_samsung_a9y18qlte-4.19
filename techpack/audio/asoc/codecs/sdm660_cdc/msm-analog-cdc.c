@@ -45,7 +45,7 @@
  * 200 Milliseconds sufficient for DSP bring up in the lpass
  * after Sub System Restart
  */
-#define ADSP_STATE_READY_TIMEOUT_MS 200
+#define ADSP_STATE_READY_TIMEOUT_MS 3000
 
 #define EAR_PMD 0
 #define EAR_PMU 1
@@ -1976,6 +1976,30 @@ static const char * const cf_text[] = {
 	"MIN_3DB_4Hz", "MIN_3DB_75Hz", "MIN_3DB_150Hz"
 };
 
+static int ear_input_mode_get(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *ucontrol)
+{
+	return 0;
+}
+
+static int ear_input_mode_put(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component =
+			snd_soc_kcontrol_component(kcontrol);
+	int enable = ucontrol->value.integer.value[0];
+
+	pr_info("%s: enable=%d\n", __func__, enable);
+
+	if (enable)
+		snd_soc_component_update_bits(component,
+			MSM89XX_PMIC_ANALOG_MICB_1_INT_RBIAS, 0x0C, 0x00);
+	else
+		snd_soc_component_update_bits(component,
+			MSM89XX_PMIC_ANALOG_MICB_1_INT_RBIAS, 0x0C, 0x08);
+
+	return 0;
+}
 
 static const struct snd_kcontrol_new msm_anlg_cdc_snd_controls[] = {
 
@@ -2003,8 +2027,8 @@ static const struct snd_kcontrol_new msm_anlg_cdc_snd_controls[] = {
 					8, 0, analog_gain),
 	SOC_SINGLE_TLV("ADC3 Volume", MSM89XX_PMIC_ANALOG_TX_3_EN, 3,
 					8, 0, analog_gain),
-
-
+	SOC_SINGLE_EXT("EAR INPUT Mode", SND_SOC_NOPM, 0, 1, 0,
+				ear_input_mode_get, ear_input_mode_put),
 };
 
 static int tombak_hph_impedance_get(struct snd_kcontrol *kcontrol,
@@ -2838,7 +2862,7 @@ static void wcd_imped_config(struct snd_soc_component *component,
 					0x20, 0x00);
 				snd_soc_component_update_bits(component,
 					MSM89XX_PMIC_ANALOG_NCP_VCTRL,
-					0x07, 0x04);
+					0x07, 0x07);
 			}
 			break;
 		}
@@ -2908,7 +2932,11 @@ static int msm_anlg_cdc_hphl_dac_event(struct snd_soc_dapm_widget *w,
 			MSM89XX_PMIC_ANALOG_RX_HPH_L_PA_DAC_CTL, 0x02, 0x00);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
-		wcd_imped_config(component, impedl, false);
+		if (!ret)
+			wcd_imped_config(component, impedl, false);
+		else
+			dev_dbg(component->dev, "Failed to get mbhc impedance %d\n",
+				ret);
 		snd_soc_component_update_bits(component,
 			MSM89XX_PMIC_DIGITAL_CDC_ANA_CLK_CTL, 0x02, 0x00);
 		snd_soc_component_update_bits(component,
@@ -3721,10 +3749,11 @@ static void msm_anlg_cdc_update_reg_defaults(
 static const struct sdm660_cdc_reg_mask_val
 	msm_anlg_cdc_codec_reg_init_val[] = {
 
-	/* Initialize current threshold to 350MA
+	/* Initialize current threshold to 440MA
+	 * N_CON_attempts change to n_15
 	 * number of wait and run cycles to 4096
 	 */
-	{MSM89XX_PMIC_ANALOG_RX_COM_OCP_CTL, 0xFF, 0x12},
+	{MSM89XX_PMIC_ANALOG_RX_COM_OCP_CTL, 0xFF, 0x7F},
 	{MSM89XX_PMIC_ANALOG_RX_COM_OCP_COUNT, 0xFF, 0xFF},
 };
 
