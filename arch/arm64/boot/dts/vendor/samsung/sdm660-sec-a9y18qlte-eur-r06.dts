@@ -27,8 +27,7 @@
 #include "sdm660-sec-a9y18qlte-muic-common.dtsi"
 #include "sdm660-sec-a9y18qlte-pmic-gpio.dtsi"
 #include "sdm660-sec-a9y18qlte-eur-fingerprint-sensor_01.dtsi"
-/* TODO: camera DT, port together with the camera_v2 changes */
-/* #include "sdm660-camera-sensor-a9y18qlte_eur-r01.dtsi" */
+#include "sdm660-camera-sensor-a9y18qlte_eur-r01.dtsi"
 #include "sdm660-sec-a9y18qlte-nfc-eur-r03.dtsi"
 #include "a9y18qlte_led_tuning-r00.dtsi"
 

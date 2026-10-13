@@ -116,6 +116,11 @@
 	};
 
 	ic2_2: i2c@c176000 {
+		/*
+		 * Camera EEPROMs and actuators (sdm660-camera-sensor-a9y18qlte).
+		 * 4.4 had this bus enabled by qcom sdm660-mtp.dtsi.
+		 */
+		status = "ok";
 		/delete-node/smb1351-charger@1d;
 	};
 
