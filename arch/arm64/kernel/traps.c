@@ -53,6 +53,13 @@
 #include <asm/system_misc.h>
 #include <asm/sysreg.h>
 
+#include <linux/sec_debug.h>
+#include <linux/sec_debug_summary.h>
+
+#ifdef CONFIG_USER_RESET_DEBUG
+#include <linux/sec_debug_user_reset.h>
+#endif
+
 static const char *handler[]= {
 	"Synchronous Abort",
 	"IRQ",
@@ -61,6 +68,50 @@ static const char *handler[]= {
 };
 
 int show_unhandled_signals = 0;
+
+#ifdef CONFIG_SEC_DEBUG
+/*
+ * Samsung's stack dump on die(), as in their 4.4 kernel. Upstream dropped
+ * dump_mem() from arm64 in 4.15.
+ */
+void dump_mem(const char *lvl, const char *str, unsigned long bottom,
+		     unsigned long top)
+{
+	unsigned long first;
+	mm_segment_t fs;
+	int i;
+
+	/*
+	 * We need to switch to kernel mode so that we can use __get_user
+	 * to safely read from kernel space.
+	 */
+	fs = get_fs();
+	set_fs(KERNEL_DS);
+
+	printk("%s%s(0x%016lx to 0x%016lx)\n", lvl, str, bottom, top);
+
+	for (first = bottom & ~31; first < top; first += 32) {
+		unsigned long p;
+		char str[sizeof(" 12345678") * 8 + 1];
+
+		memset(str, ' ', sizeof(str));
+		str[sizeof(str) - 1] = '\0';
+
+		for (p = first, i = 0; i < 8 && p < top; i++, p += 4) {
+			if (p >= bottom && p < top) {
+				unsigned int val;
+				if (__get_user(val, (unsigned int *)p) == 0)
+					sprintf(str + i * 9, " %08x", val);
+				else
+					sprintf(str + i * 9, " ????????");
+			}
+		}
+		printk("%s%04lx:%s\n", lvl, first & 0xffff, str);
+	}
+
+	set_fs(fs);
+}
+#endif
 
 static void dump_backtrace_entry(unsigned long where)
 {
@@ -210,6 +261,17 @@ static int __die(const char *str, int err, struct pt_regs *regs)
 		 end_of_stack(tsk));
 	show_regs(regs);
 
+#ifdef CONFIG_SEC_DEBUG
+	if (THREAD_SIZE + (unsigned long)task_stack_page(tsk) - regs->sp
+		> THREAD_SIZE) {
+		dump_mem(KERN_EMERG, "Stack: ", regs->sp,
+				THREAD_SIZE / 4 + regs->sp);
+	} else {
+		dump_mem(KERN_EMERG, "Stack: ", regs->sp, THREAD_SIZE
+				+ (unsigned long)task_stack_page(tsk));
+	}
+#endif
+
 	if (!user_mode(regs))
 		dump_instr(KERN_EMERG, regs);
 
@@ -229,9 +291,11 @@ void die(const char *str, struct pt_regs *regs, int err)
 	raw_spin_lock_irqsave(&die_lock, flags);
 
 	oops_enter();
+	secdbg_sched_msg("!!die!!");
 
 	console_verbose();
 	bust_spinlocks(1);
+	sec_debug_save_die_info(str, regs);
 	ret = __die(str, err, regs);
 
 	if (regs && kexec_should_crash(current))
@@ -800,6 +864,11 @@ asmlinkage void bad_mode(struct pt_regs *regs, int reason, unsigned int esr)
 	pr_crit("Bad mode in %s handler detected on CPU%d, code 0x%08x -- %s\n",
 		handler[reason], smp_processor_id(), esr,
 		esr_get_class_string(esr));
+
+#ifdef CONFIG_USER_RESET_DEBUG
+	sec_debug_save_badmode_info(reason, handler[reason],
+			esr, esr_get_class_string(esr));
+#endif
 
 	local_daif_mask();
 	panic("bad mode");

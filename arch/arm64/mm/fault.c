@@ -48,6 +48,12 @@
 #include <asm/traps.h>
 #include <soc/qcom/scm.h>
 
+#include <linux/sec_debug.h>
+
+#ifdef CONFIG_USER_RESET_DEBUG
+#include <linux/sec_debug_user_reset.h>
+#endif
+
 #include <acpi/ghes.h>
 
 struct fault_info {
@@ -169,9 +175,19 @@ void show_pte(unsigned long addr)
 	pr_alert("%s pgtable: %luk pages, %u-bit VAs, pgdp = %p\n",
 		 mm == &init_mm ? "swapper" : "user", PAGE_SIZE / SZ_1K,
 		 VA_BITS, mm->pgd);
+
+#ifdef CONFIG_USER_RESET_DEBUG
+	sec_debug_store_pte((unsigned long)mm->pgd, 0);
+#endif
+
 	pgdp = pgd_offset(mm, addr);
 	pgd = READ_ONCE(*pgdp);
 	pr_alert("[%016lx] pgd=%016llx", addr, pgd_val(pgd));
+
+#ifdef CONFIG_USER_RESET_DEBUG
+	sec_debug_store_pte((unsigned long)addr, 1);
+	sec_debug_store_pte((unsigned long)pgd_val(pgd), 2);
+#endif
 
 	do {
 		pud_t *pudp, pud;
@@ -184,18 +200,27 @@ void show_pte(unsigned long addr)
 		pudp = pud_offset(pgdp, addr);
 		pud = READ_ONCE(*pudp);
 		pr_cont(", pud=%016llx", pud_val(pud));
+#ifdef CONFIG_USER_RESET_DEBUG
+		sec_debug_store_pte((unsigned long)pud_val(pud), 3);
+#endif
 		if (pud_none(pud) || pud_bad(pud))
 			break;
 
 		pmdp = pmd_offset(pudp, addr);
 		pmd = READ_ONCE(*pmdp);
 		pr_cont(", pmd=%016llx", pmd_val(pmd));
+#ifdef CONFIG_USER_RESET_DEBUG
+		sec_debug_store_pte((unsigned long)pmd_val(pmd), 4);
+#endif
 		if (pmd_none(pmd) || pmd_bad(pmd))
 			break;
 
 		ptep = pte_offset_map(pmdp, addr);
 		pte = READ_ONCE(*ptep);
 		pr_cont(", pte=%016llx", pte_val(pte));
+#ifdef CONFIG_USER_RESET_DEBUG
+		sec_debug_store_pte((unsigned long)pte_val(pte), 5);
+#endif
 		pte_unmap(ptep);
 	} while(0);
 
@@ -312,11 +337,20 @@ static void __do_kernel_fault(unsigned long addr, unsigned int esr,
 		msg = "paging request";
 	}
 
+#ifdef CONFIG_USER_RESET_DEBUG
+	sec_debug_store_extc_idx(false);
+#endif
+
 	die_kernel_fault(msg, addr, esr, regs);
 }
 
 static void __do_user_fault(struct siginfo *info, unsigned int esr)
 {
+	if (current->pid == 0x1) {
+		pr_err("[%s] trap before tragedy\n", current->comm);
+		panic("init");
+	}
+
 	current->thread.fault_address = (unsigned long)info->si_addr;
 
 	/*
@@ -761,6 +795,10 @@ asmlinkage void __exception do_mem_abort(unsigned long addr, unsigned int esr,
 	const struct fault_info *inf = esr_to_fault_info(esr);
 	struct siginfo info;
 
+#ifdef CONFIG_USER_RESET_DEBUG
+	sec_debug_save_fault_info(esr, inf->name, addr, 0UL);
+#endif
+
 	if (!inf->fn(addr, esr, regs))
 		return;
 
@@ -812,6 +850,11 @@ asmlinkage void __exception do_sp_pc_abort(unsigned long addr,
 			arm64_apply_bp_hardening();
 		local_irq_enable();
 	}
+
+#ifdef CONFIG_USER_RESET_DEBUG
+	sec_debug_save_fault_info(esr, esr_get_class_string(esr),
+			(unsigned long)regs->pc, (unsigned long)regs->sp);
+#endif
 
 	clear_siginfo(&info);
 	info.si_signo = SIGBUS;
@@ -899,6 +942,9 @@ asmlinkage int __exception do_debug_exception(unsigned long addr_if_watchpoint,
 	 */
 	if (interrupts_enabled(regs))
 		trace_hardirqs_off();
+#ifdef CONFIG_USER_RESET_DEBUG
+	sec_debug_save_fault_info(esr, inf->name, addr_if_watchpoint , 0UL);
+#endif
 
 	if (user_mode(regs) && !is_ttbr0_addr(pc))
 		arm64_apply_bp_hardening();

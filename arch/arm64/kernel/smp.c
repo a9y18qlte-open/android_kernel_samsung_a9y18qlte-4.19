@@ -65,6 +65,8 @@
 
 #include <soc/qcom/lpm_levels.h>
 
+#include <linux/sec_debug.h>
+
 #define CREATE_TRACE_POINTS
 #include <trace/events/ipi.h>
 
@@ -854,6 +856,7 @@ static void ipi_cpu_stop(unsigned int cpu, struct pt_regs *regs)
 		__show_regs(regs);
 		dump_stack();
 		dump_stack_minidump(regs->sp);
+		sec_debug_save_context();
 		raw_spin_unlock(&stop_lock);
 	}
 
