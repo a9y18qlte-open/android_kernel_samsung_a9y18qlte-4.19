@@ -101,7 +101,7 @@ static struct gpio_event_input_info sec_jack_key_info = {
 	.info.func = gpio_event_input_func,
 	.info.no_suspend = true,
 	.type = EV_KEY,
-	.debounce_time.tv64 = DEFAULT_KEY_DEBOUNCE_TIME_MS * NSEC_PER_MSEC,
+	.debounce_time = DEFAULT_KEY_DEBOUNCE_TIME_MS * NSEC_PER_MSEC,
 	.keymap = sec_jack_key_map,
 	.keymap_size = ARRAY_SIZE(sec_jack_key_map)
 };
@@ -340,8 +340,8 @@ static void sec_jack_set_type(struct sec_jack_info *hi,
 				hi->dev_id,
 				&sec_jack_input_data,
 				sizeof(sec_jack_input_data));
-			mod_timer(&hi->timer,
-				jiffies + msecs_to_jiffies(1000));
+		mod_timer(&hi->timer,
+			jiffies + msecs_to_jiffies(1000));
 	} else {
 		/* micbias is left enabled for 4pole and disabled otherwise */
 		set_sec_micbias_state(hi, false);
@@ -493,9 +493,9 @@ static ssize_t earjack_moisture_adc_show(struct device *dev,
 static DEVICE_ATTR(moisture_adc, 0444, earjack_moisture_adc_show,
 	NULL);
 
-static void sec_jack_timer_handler(unsigned long data)
+static void sec_jack_timer_handler(struct timer_list *t)
 {
-	struct sec_jack_info *hi = (struct sec_jack_info *)data;
+	struct sec_jack_info *hi = from_timer(hi, t, timer);
 
 	hi->buttons_enable = true;
 
@@ -947,7 +947,7 @@ static int sec_jack_probe(struct platform_device *pdev)
 
 	wake_lock_init(&hi->det_wake_lock, WAKE_LOCK_SUSPEND, "sec_jack_det");
 
-	setup_timer(&hi->timer, sec_jack_timer_handler, (unsigned long)hi);
+	timer_setup(&hi->timer, sec_jack_timer_handler, 0);
 
 	INIT_WORK(&hi->detect_work, sec_jack_detect_work);
 	INIT_WORK(&hi->buttons_work, sec_jack_buttons_work);
@@ -999,7 +999,7 @@ static int sec_jack_probe(struct platform_device *pdev)
 		sec_jack_key_info.flags = 1;
 
 	if (pdata->key_debounce_time_ms > 0)
-		sec_jack_key_info.debounce_time.tv64
+		sec_jack_key_info.debounce_time
 				= pdata->key_debounce_time_ms * NSEC_PER_MSEC;
 
 	ret = request_irq(hi->det_irq, sec_jack_detect_irq,
