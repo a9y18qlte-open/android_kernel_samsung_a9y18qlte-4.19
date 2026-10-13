@@ -292,6 +292,17 @@ int ion_heap_pages_zero(struct page *page, size_t size, pgprot_t pgprot);
 
 int ion_alloc_fd(size_t len, unsigned int heap_id_mask, unsigned int flags);
 
+#ifdef CONFIG_ION_LEGACY
+enum ion_legacy_cache_op {
+	ION_LEGACY_CLEAN,
+	ION_LEGACY_INV,
+	ION_LEGACY_CLEAN_INV,
+};
+
+int ion_legacy_cache_op(int fd, enum ion_legacy_cache_op op,
+			unsigned int offset, unsigned int length);
+#endif
+
 /**
  * ion_heap_init_shrinker
  * @heap:		the heap

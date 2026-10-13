@@ -31,6 +31,7 @@
 #include <linux/vmalloc.h>
 #include <linux/bitops.h>
 #include <linux/msm_dma_iommu_mapping.h>
+#include <asm/cacheflush.h>
 #define CREATE_TRACE_POINTS
 #include <trace/events/ion.h>
 #include <soc/qcom/secure_buffer.h>
@@ -1146,6 +1147,74 @@ int ion_alloc_fd(size_t len, unsigned int heap_id_mask, unsigned int flags)
 
 	return fd;
 }
+
+#ifdef CONFIG_ION_LEGACY
+/*
+ * Legacy msm ION cache maintenance (ION_IOC_CLEAN/INV/CLEAN_INV_CACHES) as
+ * pre-4.12 kernels did it: on the buffer's pages, whether or not a device
+ * has the buffer mapped yet. dma-buf cpu access only syncs mapped
+ * attachments, which misses buffers the CPU fills before their first use.
+ */
+int ion_legacy_cache_op(int fd, enum ion_legacy_cache_op op,
+			unsigned int offset, unsigned int length)
+{
+	struct dma_buf *dmabuf;
+	struct ion_buffer *buffer;
+	struct scatterlist *sg;
+	size_t end, pos = 0;
+	int i, ret = 0;
+
+	dmabuf = dma_buf_get(fd);
+	if (IS_ERR(dmabuf))
+		return PTR_ERR(dmabuf);
+
+	if (dmabuf->ops != &dma_buf_ops) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	buffer = dmabuf->priv;
+	if (!(buffer->flags & ION_FLAG_CACHED) ||
+	    !hlos_accessible_buffer(buffer))
+		goto out;
+
+	if (!length || (size_t)offset + length > buffer->size) {
+		offset = 0;
+		length = buffer->size;
+	}
+	end = (size_t)offset + length;
+
+	mutex_lock(&buffer->lock);
+	for_each_sg(buffer->sg_table->sgl, sg, buffer->sg_table->nents, i) {
+		size_t start = max_t(size_t, offset, pos);
+		size_t stop = min_t(size_t, end, pos + sg->length);
+		void *vaddr;
+
+		if (start < stop) {
+			vaddr = page_address(sg_page(sg)) + sg->offset +
+				(start - pos);
+			switch (op) {
+			case ION_LEGACY_CLEAN:
+				__dma_clean_area(vaddr, stop - start);
+				break;
+			case ION_LEGACY_INV:
+				__dma_inv_area(vaddr, stop - start);
+				break;
+			case ION_LEGACY_CLEAN_INV:
+				__dma_flush_area(vaddr, stop - start);
+				break;
+			}
+		}
+		pos += sg->length;
+		if (pos >= end)
+			break;
+	}
+	mutex_unlock(&buffer->lock);
+out:
+	dma_buf_put(dmabuf);
+	return ret;
+}
+#endif
 
 int ion_query_heaps(struct ion_heap_query *query)
 {

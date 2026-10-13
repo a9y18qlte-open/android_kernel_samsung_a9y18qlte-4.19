@@ -40,6 +40,81 @@ struct compat_ion_handle_data {
 #define COMPAT_ION_IOC_FREE	_IOWR(ION_IOC_MAGIC, 1, \
 				      struct compat_ion_handle_data)
 
+struct compat_ion_custom_data {
+	compat_uint_t cmd;
+	compat_ulong_t arg;
+};
+
+struct compat_ion_flush_data {
+	compat_int_t handle;
+	compat_int_t fd;
+	compat_uptr_t vaddr;
+	compat_uint_t offset;
+	compat_uint_t length;
+};
+
+#define COMPAT_ION_IOC_CUSTOM	_IOWR(ION_IOC_MAGIC, 6, \
+				      struct compat_ion_custom_data)
+#define COMPAT_ION_IOC_CLEAN_CACHES	_IOWR(ION_IOC_MSM_MAGIC, 0, \
+					      struct compat_ion_flush_data)
+#define COMPAT_ION_IOC_INV_CACHES	_IOWR(ION_IOC_MSM_MAGIC, 1, \
+					      struct compat_ion_flush_data)
+#define COMPAT_ION_IOC_CLEAN_INV_CACHES	_IOWR(ION_IOC_MSM_MAGIC, 2, \
+					      struct compat_ion_flush_data)
+
+static long compat_ion_custom_ioctl(struct file *filp,
+			struct compat_ion_custom_data __user *data32)
+{
+	struct compat_ion_flush_data __user *flush32;
+	struct ion_custom_data __user *data;
+	struct ion_flush_data __user *flush;
+	compat_uint_t cmd, u;
+	compat_ulong_t arg;
+	compat_int_t i;
+	int err;
+
+	err = get_user(cmd, &data32->cmd);
+	err |= get_user(arg, &data32->arg);
+	if (err)
+		return -EFAULT;
+
+	switch (cmd) {
+	case COMPAT_ION_IOC_CLEAN_CACHES:
+		cmd = ION_IOC_CLEAN_CACHES;
+		break;
+	case COMPAT_ION_IOC_INV_CACHES:
+		cmd = ION_IOC_INV_CACHES;
+		break;
+	case COMPAT_ION_IOC_CLEAN_INV_CACHES:
+		cmd = ION_IOC_CLEAN_INV_CACHES;
+		break;
+	default:
+		return -ENOTTY;
+	}
+
+	data = compat_alloc_user_space(sizeof(*data) + sizeof(*flush));
+	if (!data)
+		return -EFAULT;
+	flush = (struct ion_flush_data __user *)(data + 1);
+	flush32 = compat_ptr(arg);
+
+	err = put_user(cmd, &data->cmd);
+	err |= put_user((unsigned long)flush, &data->arg);
+	err |= get_user(i, &flush32->handle);
+	err |= put_user(i, &flush->handle);
+	err |= get_user(i, &flush32->fd);
+	err |= put_user(i, &flush->fd);
+	err |= get_user(u, &flush32->offset);
+	err |= put_user(u, &flush->offset);
+	err |= get_user(u, &flush32->length);
+	err |= put_user(u, &flush->length);
+	if (err)
+		return -EFAULT;
+
+	return filp->f_op->unlocked_ioctl(filp, ION_IOC_CUSTOM,
+					  (unsigned long)data);
+}
+
 static int compat_get_ion_allocation_data(
 			struct compat_ion_old_allocation_data __user *data32,
 			struct ion_old_allocation_data __user *data)
@@ -144,6 +219,8 @@ long compat_ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		return filp->f_op->unlocked_ioctl(filp, ION_IOC_FREE,
 							(unsigned long)data);
 	}
+	case COMPAT_ION_IOC_CUSTOM:
+		return compat_ion_custom_ioctl(filp, compat_ptr(arg));
 	case ION_IOC_SHARE:
 	case ION_IOC_MAP:
 	case ION_IOC_IMPORT:
