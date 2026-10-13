@@ -54,6 +54,22 @@ int crypto_qti_program_key(struct crypto_vops_qti_entry *ice_entry,
 	memcpy(tzbuf, key_new.bytes, key->size);
 	dmac_flush_range(tzbuf, tzbuf + key->size);
 
+	if (IS_ENABLED(CONFIG_QTI_CRYPTO_TZ_LEGACY_ICE_KEY)) {
+		/* the first half is the key, the second the salt (XTS key 2) */
+		if (key->is_hw_wrapped || key->size != 2 * ICE_LEGACY_KEY_SIZE) {
+			err = -EINVAL;
+			goto out;
+		}
+		smc_id = TZ_ES_SET_ICE_KEY_ID;
+		desc.arginfo = TZ_ES_SET_ICE_KEY_PARAM_ID;
+		desc.args[0] = slot;
+		desc.args[1] = shm.paddr;
+		desc.args[2] = ICE_LEGACY_KEY_SIZE;
+		desc.args[3] = shm.paddr + ICE_LEGACY_KEY_SIZE;
+		desc.args[4] = ICE_LEGACY_KEY_SIZE;
+		goto call;
+	}
+
 	smc_id = TZ_ES_CONFIG_SET_ICE_KEY_CE_TYPE_ID;
 	desc.arginfo = TZ_ES_CONFIG_SET_ICE_KEY_CE_TYPE_PARAM_ID;
 	desc.args[0] = slot;
@@ -63,12 +79,12 @@ int crypto_qti_program_key(struct crypto_vops_qti_entry *ice_entry,
 	desc.args[4] = data_unit_mask;
 	desc.args[5] = storage_type;
 
-
+call:
 	err = scm_call2_noretry(smc_id, &desc);
 	if (err)
 		pr_err("%s:SCM call Error: 0x%x slot %d\n",
 				__func__, err, slot);
-
+out:
 	qtee_shmbridge_free_shm(&shm);
 
 	return err;
@@ -81,11 +97,16 @@ int crypto_qti_invalidate_key(
 	uint32_t smc_id = 0;
 	struct scm_desc desc = {0};
 
-	smc_id = TZ_ES_INVALIDATE_ICE_KEY_CE_TYPE_ID;
-
-	desc.arginfo = TZ_ES_INVALIDATE_ICE_KEY_CE_TYPE_PARAM_ID;
-	desc.args[0] = slot;
-	desc.args[1] = storage_type;
+	if (IS_ENABLED(CONFIG_QTI_CRYPTO_TZ_LEGACY_ICE_KEY)) {
+		smc_id = TZ_ES_INVALIDATE_ICE_KEY_ID;
+		desc.arginfo = TZ_ES_INVALIDATE_ICE_KEY_PARAM_ID;
+		desc.args[0] = slot;
+	} else {
+		smc_id = TZ_ES_INVALIDATE_ICE_KEY_CE_TYPE_ID;
+		desc.arginfo = TZ_ES_INVALIDATE_ICE_KEY_CE_TYPE_PARAM_ID;
+		desc.args[0] = slot;
+		desc.args[1] = storage_type;
+	}
 
 	err = scm_call2_noretry(smc_id, &desc);
 	if (err)

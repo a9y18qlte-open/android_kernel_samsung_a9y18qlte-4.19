@@ -27,6 +27,16 @@
 
 #define NUM_KEYSLOTS(hba) (hba->crypto_capabilities.config_count + 1)
 
+/*
+ * A legacy TZ keeps ICE key indices 0 and 1 for FDE, so the keyslot
+ * manager's slot n is ICE key index n + ICE_FBE_FIRST_SLOT.
+ */
+#if IS_ENABLED(CONFIG_QTI_CRYPTO_TZ_LEGACY_ICE_KEY)
+#define ICE_FBE_FIRST_SLOT 2
+#else
+#define ICE_FBE_FIRST_SLOT 0
+#endif
+
 static struct ufs_hba_crypto_variant_ops ufshcd_crypto_qti_variant_ops = {
 	.hba_init_crypto = ufshcd_crypto_qti_init_crypto,
 	.enable = ufshcd_crypto_qti_enable,
@@ -85,6 +95,7 @@ static int ufshcd_crypto_qti_keyslot_program(struct keyslot_manager *ksm,
 	u8 data_unit_mask;
 	int crypto_alg_id;
 
+	slot += ICE_FBE_FIRST_SLOT;
 	crypto_alg_id = ufshcd_crypto_cap_find(hba, key->crypto_mode,
 					       key->data_unit_size);
 
@@ -127,6 +138,7 @@ static int ufshcd_crypto_qti_keyslot_evict(struct keyslot_manager *ksm,
 	int err = 0;
 	struct ufs_hba *hba = keyslot_manager_private(ksm);
 
+	slot += ICE_FBE_FIRST_SLOT;
 	if (!ufshcd_is_crypto_enabled(hba) ||
 	    !ufshcd_keyslot_valid(hba, slot))
 		return -EINVAL;
@@ -238,7 +250,9 @@ static int ufshcd_hba_init_crypto_qti_spec(struct ufs_hba *hba,
 			hba->crypto_cap_array[cap_idx].sdus_mask * 512;
 	}
 
-	hba->ksm = keyslot_manager_create(hba->dev, ufshcd_num_keyslots(hba),
+	hba->ksm = keyslot_manager_create(hba->dev,
+					  ufshcd_num_keyslots(hba) -
+					  ICE_FBE_FIRST_SLOT,
 					  ksm_ops,
 					  BLK_CRYPTO_FEATURE_STANDARD_KEYS |
 					  BLK_CRYPTO_FEATURE_WRAPPED_KEYS,
@@ -337,11 +351,11 @@ int ufshcd_crypto_qti_prep_lrbp_crypto(struct ufs_hba *hba,
 		 */
 		return -EINVAL;
 	}
-	if (!ufshcd_keyslot_valid(hba, bc->bc_keyslot))
+	if (!ufshcd_keyslot_valid(hba, bc->bc_keyslot + ICE_FBE_FIRST_SLOT))
 		return -EINVAL;
 
 	lrbp->crypto_enable = true;
-	lrbp->crypto_key_slot = bc->bc_keyslot;
+	lrbp->crypto_key_slot = bc->bc_keyslot + ICE_FBE_FIRST_SLOT;
 	if (bc->is_ext4) {
 		lrbp->data_unit_num = (u64)cmd->request->bio->bi_iter.bi_sector;
 		lrbp->data_unit_num >>= 3;

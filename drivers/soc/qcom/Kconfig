@@ -937,6 +937,16 @@ config QTI_CRYPTO_TZ
 	 programmed and managed through SCM calls to TZ where ICE driver
 	 will configure keys.
 
+config QTI_CRYPTO_TZ_LEGACY_ICE_KEY
+	bool "Program ICE keys with the legacy TZ calls"
+	depends on QTI_CRYPTO_TZ
+	help
+	 Say 'Y' on targets whose Trustzone predates the ES "CE type" calls
+	 and only knows TZ_ES_SET_ICE_KEY / TZ_ES_INVALIDATE_ICE_KEY, as used
+	 by the 4.4/4.9 PFK (security/pfe/pfk_ice.c), e.g. SDM660. The key
+	 is passed as key and salt, and like the PFK, file encryption keys
+	 use ICE key indices 2 and up, as 0 and 1 are reserved for FDE.
+
 config MSM_BAM_DMUX
 	bool "BAM Data Mux Driver"
 	depends on SPS
