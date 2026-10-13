@@ -25,10 +25,27 @@
 #include "pelt.h"
 #include "walt.h"
 
+#ifdef CONFIG_SEC_DEBUG
+#include <linux/sec_debug.h>
+#endif
+
+#ifdef CONFIG_SEC_DEBUG_SUMMARY
+#include <linux/sec_debug_summary.h>
+#endif
+
 #define CREATE_TRACE_POINTS
 #include <trace/events/sched.h>
 
 DEFINE_PER_CPU_SHARED_ALIGNED(struct rq, runqueues);
+
+#ifdef CONFIG_SEC_DEBUG_SUMMARY
+void summary_set_lpm_info_runqueues(struct sec_debug_summary_data_apss *apss)
+{
+	pr_info("%s : 0x%llx\n", __func__, __pa_symbol(&runqueues));
+	apss->aplpm.p_runqueues = __pa_symbol(&runqueues);
+	/* 4.19's struct rq has no cstate (a 4.4 HMP field): leave it 0 */
+}
+#endif
 
 #ifdef CONFIG_SCHED_DEBUG
 /*
@@ -4378,6 +4395,7 @@ static void __sched notrace __schedule(bool preempt)
 		++*switch_count;
 
 		trace_sched_switch(preempt, prev, next);
+		sec_debug_task_sched_log(cpu, preempt, next, prev);
 
 		/* Also unlocks the rq: */
 		rq = context_switch(rq, prev, next, &rf);
