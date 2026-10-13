@@ -203,12 +203,19 @@
 /*
  * USB attach comes from the S2MM005 CCIC / SM5705 MUIC through Samsung's
  * usb_notify (dwc_msm_vbus_event/dwc_msm_id_event), not from the pm660 PD
- * PHY, so no extcon. dwc3-msm still starts in peripheral mode at probe.
+ * PHY, so no extcon. With dr_mode "drd" (the 4.19 dwc3-msm managed dual role;
+ * "otg" makes the no-extcon probe path force peripheral) and
+ * qcom,default-mode-none, dwc3-msm waits for those events like on 4.4.
  * The CC direction comes from TLMM GPIO 38 (read by number on 4.4).
  */
 &usb3 {
 	/delete-property/ extcon;
 	samsung,cc-dir-gpio = <&tlmm 38 0>;
+	qcom,default-mode-none;
+
+	dwc3@a800000 {
+		dr_mode = "drd";
+	};
 };
 
 /*
