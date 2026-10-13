@@ -30,6 +30,11 @@
 #include <media/media-device.h>
 #include <media/media-devnode.h>
 #include <media/media-entity.h>
+#if IS_ENABLED(CONFIG_MSMB_CAMERA)
+#include <media/msmb_camera.h>
+#include <media/v4l2-dev.h>
+#include <media/v4l2-subdev.h>
+#endif
 
 #ifdef CONFIG_MEDIA_CONTROLLER
 
@@ -85,22 +90,116 @@ static long media_device_get_info(struct media_device *dev, void *arg)
 	return 0;
 }
 
+#if IS_ENABLED(CONFIG_MSMB_CAMERA)
+static bool msm_camera_legacy_mdev(struct media_device *mdev)
+{
+	return !strcmp(mdev->model, MSM_CONFIGURATION_NAME) ||
+	       !strcmp(mdev->model, MSM_CAMERA_NAME);
+}
+
+/*
+ * 4.4 numbered entities 1..n in registration order and camera_v2
+ * userspace walks them by that number (id = ++n, no FLAG_NEXT). 4.19
+ * entity ids share one counter with pads, links and interfaces, so they
+ * have gaps: use the registration position as the id for these devices.
+ */
+static u32 msm_camera_legacy_entity_id(struct media_device *mdev,
+				       struct media_entity *ent)
+{
+	struct media_entity *entity;
+	u32 pos = 0;
+
+	media_device_for_each_entity(entity, mdev) {
+		pos++;
+		if (entity == ent)
+			break;
+	}
+
+	return pos;
+}
+#endif
+
 static struct media_entity *find_entity(struct media_device *mdev, u32 id)
 {
 	struct media_entity *entity;
 	int next = id & MEDIA_ENT_ID_FLAG_NEXT;
+#if IS_ENABLED(CONFIG_MSMB_CAMERA)
+	bool legacy = msm_camera_legacy_mdev(mdev);
+	u32 pos = 0;
+#endif
 
 	id &= ~MEDIA_ENT_ID_FLAG_NEXT;
 
 	media_device_for_each_entity(entity, mdev) {
-		if (((media_entity_id(entity) == id) && !next) ||
-		    ((media_entity_id(entity) > id) && next)) {
+		u32 ent_id = media_entity_id(entity);
+
+#if IS_ENABLED(CONFIG_MSMB_CAMERA)
+		if (legacy)
+			ent_id = ++pos;
+#endif
+		if (((ent_id == id) && !next) ||
+		    ((ent_id > id) && next)) {
 			return entity;
 		}
 	}
 
 	return NULL;
 }
+
+#if IS_ENABLED(CONFIG_MSMB_CAMERA)
+/*
+ * camera_v2 userspace built for 4.4 (stock mm-camera, the QCamera2 HAL)
+ * finds its nodes in the msm_config/msm_camera media devices by the old
+ * entity type plus group_id: MEDIA_ENT_T_V4L2_SUBDEV with group_id
+ * MSM_CAMERA_SUBDEV_* (0..22) for subdevs, MEDIA_ENT_T_DEVNODE_V4L with
+ * group_id 2 for video nodes. 4.19 drops group_id and camera_v2 encodes
+ * the subdev kind in the entity function instead, so report the 4.4 view.
+ */
+static void msm_camera_legacy_entity_desc(struct media_device *mdev,
+					  struct media_entity *ent,
+					  struct media_entity_desc *entd)
+{
+	u32 id;
+
+	if (!msm_camera_legacy_mdev(mdev))
+		return;
+
+	entd->id = msm_camera_legacy_entity_id(mdev, ent);
+
+	if (ent->function == QCAMERA_VNODE_GROUP_ID) {
+		entd->type = MEDIA_ENT_F_IO_V4L;	/* MEDIA_ENT_T_DEVNODE_V4L */
+		entd->group_id = 2;
+		return;
+	}
+
+	if (!is_media_entity_v4l2_subdev(ent) ||
+	    ent->function < MSM_CAMERA_SUBDEV_BASE ||
+	    ent->function > MSM_CAMERA_SUBDEV_OTP)
+		return;
+
+	/* 4.19 swapped the CSID and BUF_MNGR function offsets */
+	if (ent->function == MSM_CAMERA_SUBDEV_CSID)
+		id = 1;
+	else if (ent->function == MSM_CAMERA_SUBDEV_BUF_MNGR)
+		id = 13;
+	else
+		id = ent->function - MSM_CAMERA_SUBDEV_BASE;
+
+	entd->type = MEDIA_ENT_F_V4L2_SUBDEV_UNKNOWN;	/* MEDIA_ENT_T_V4L2_SUBDEV */
+	entd->group_id = id;
+
+	/*
+	 * 4.4 msm_cpp/msm_vpe set entity.revision to their subdev node number
+	 * and mm-camera opens /dev/v4l-subdev<revision>.
+	 */
+	if (id == 5 || id == 9) {	/* MSM_CAMERA_SUBDEV_VPE, _CPP */
+		struct v4l2_subdev *sd = media_entity_to_v4l2_subdev(ent);
+
+		if (sd->devnode)
+			entd->revision = sd->devnode->num;
+	}
+}
+#endif
 
 static long media_device_enum_entities(struct media_device *mdev, void *arg)
 {
@@ -141,6 +240,10 @@ static long media_device_enum_entities(struct media_device *mdev, void *arg)
 		else if (ent->function != MEDIA_ENT_F_IO_V4L)
 			entd->type = MEDIA_ENT_T_DEVNODE_UNKNOWN;
 	}
+
+#if IS_ENABLED(CONFIG_MSMB_CAMERA)
+	msm_camera_legacy_entity_desc(mdev, ent, entd);
+#endif
 
 	memcpy(&entd->raw, &ent->info, sizeof(ent->info));
 
