@@ -108,13 +108,8 @@ static int set_tamper_fuse_cmd(void)
 	desc.args[0] = fuse_id = HLOS_IMG_TAMPER_FUSE;
 	desc.arginfo = SCM_ARGS(1);
 
-	if (!is_scm_armv8()) {
-		return scm_call(SCM_SVC_FUSE, SCM_BLOW_SW_FUSE_ID, &fuse_id,
-			sizeof(fuse_id), NULL, 0);
-	} else {
-		return scm_call2(SCM_SIP_FNID(SCM_SVC_FUSE, SCM_BLOW_SW_FUSE_ID),
-				&desc);
-	}
+	return scm_call2(SCM_SIP_FNID(SCM_SVC_FUSE, SCM_BLOW_SW_FUSE_ID),
+			&desc);
 }
 
 
@@ -126,13 +121,8 @@ static int set_tamper_fuse_cmd_new(uint32_t flag)
 	desc.args[0] = fuse_id = flag;
 	desc.arginfo = SCM_ARGS(1);
 
-	if (!is_scm_armv8()) {
-		return scm_call(SCM_SVC_FUSE, SCM_BLOW_SW_FUSE_ID, &fuse_id,
-			sizeof(fuse_id), NULL, 0);
-	} else {
-		return scm_call2(SCM_SIP_FNID(SCM_SVC_FUSE, SCM_BLOW_SW_FUSE_ID),
-				&desc);
-	}
+	return scm_call2(SCM_SIP_FNID(SCM_SVC_FUSE, SCM_BLOW_SW_FUSE_ID),
+			&desc);
 }
 
 
@@ -149,14 +139,9 @@ static uint8_t get_tamper_fuse_cmd(void)
 	desc.args[0] = fuse_id = HLOS_IMG_TAMPER_FUSE;
 	desc.arginfo = SCM_ARGS(1);
 
-	if (!is_scm_armv8()) {
-		ret = scm_call(SCM_SVC_FUSE, SCM_IS_SW_FUSE_BLOWN_ID, &fuse_id,
-			sizeof(fuse_id), &resp_buf, resp_len);
-	} else {
-		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_FUSE, SCM_IS_SW_FUSE_BLOWN_ID),
-				&desc);
-		resp_buf = desc.ret[0];
-	}
+	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_FUSE, SCM_IS_SW_FUSE_BLOWN_ID),
+			&desc);
+	resp_buf = desc.ret[0];
 
 	if (ret) {
 		LOG(KERN_INFO "scm_call/2 returned %d", ret);
@@ -180,14 +165,9 @@ static uint8_t get_tamper_fuse_cmd_new(uint32_t flag)
 	desc.args[0] = fuse_id = flag;
 	desc.arginfo = SCM_ARGS(1);
 
-	if (!is_scm_armv8()) {
-		ret = scm_call(SCM_SVC_FUSE, SCM_IS_SW_FUSE_BLOWN_ID, &fuse_id,
-			sizeof(fuse_id), &resp_buf, resp_len);
-	} else {
-		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_FUSE, SCM_IS_SW_FUSE_BLOWN_ID),
-				&desc);
-		resp_buf = desc.ret[0];
-	}
+	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_FUSE, SCM_IS_SW_FUSE_BLOWN_ID),
+			&desc);
+	resp_buf = desc.ret[0];
 
 	if (ret) {
 		LOG(KERN_INFO "scm_call/2 returned %d", ret);

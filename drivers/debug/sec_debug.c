@@ -32,6 +32,7 @@
 #include <linux/reboot.h>
 #include <linux/regulator/consumer.h>
 #include <linux/sched.h>
+#include <linux/sched/stat.h>
 #include <linux/seq_file.h>
 #include <soc/qcom/restart.h>
 #include <linux/slab.h>
@@ -41,7 +42,6 @@
 #include <linux/vmalloc.h>
 
 #include <soc/qcom/scm.h>
-#include <soc/qcom/smem.h>
 
 #include <asm/cacheflush.h>
 #include <asm/compiler.h>
@@ -54,7 +54,9 @@
 #include <linux/sec_param.h>
 
 // [ SEC_SELINUX_PORTING_QUALCOMM
+#ifdef CONFIG_PROC_AVC
 #include <linux/proc_avc.h>
+#endif
 // ] SEC_SELINUX_PORTING_QUALCOMM
 
 #define CREATE_TRACE_POINTS
@@ -766,11 +768,7 @@ void sec_do_bypass_sdi_execution_in_low(void)
 	};
 
 	/* Needed to bypass debug image on some chips */
-	if (!is_scm_armv8())
-		ret = scm_call_atomic2(SCM_SVC_BOOT,
-			       SCM_WDOG_DEBUG_BOOT_PART, 1, 0);
-	else
-		ret = scm_call2_atomic(SCM_SIP_FNID(SCM_SVC_BOOT,
+	ret = scm_call2_atomic(SCM_SIP_FNID(SCM_SVC_BOOT,
 			  SCM_WDOG_DEBUG_BOOT_PART), &desc);
 	if (ret)
 		pr_err("Failed to disable wdog debug: %d\n", ret);
@@ -1255,16 +1253,16 @@ void dump_cpu_stat(void)
 			"user", "nice", "system", "idle", "iowait", "irq",
 			"softirq", "steal", "guest", "guest_nice");
 	__pr_info("cpu   %8llu %8llu %8llu %8llu %8llu %8llu %8llu %8llu %8llu %8llu\n",
-			cputime64_to_clock_t(user),
-			cputime64_to_clock_t(nice),
-			cputime64_to_clock_t(system),
-			cputime64_to_clock_t(idle),
-			cputime64_to_clock_t(iowait),
-			cputime64_to_clock_t(irq),
-			cputime64_to_clock_t(softirq),
-			cputime64_to_clock_t(steal),
-			cputime64_to_clock_t(guest),
-			cputime64_to_clock_t(guest_nice));
+			nsec_to_clock_t(user),
+			nsec_to_clock_t(nice),
+			nsec_to_clock_t(system),
+			nsec_to_clock_t(idle),
+			nsec_to_clock_t(iowait),
+			nsec_to_clock_t(irq),
+			nsec_to_clock_t(softirq),
+			nsec_to_clock_t(steal),
+			nsec_to_clock_t(guest),
+			nsec_to_clock_t(guest_nice));
 
 	for_each_online_cpu(i) {
 		/* Copy values here to work around gcc-2.95.3, gcc-2.96 */
@@ -1280,16 +1278,16 @@ void dump_cpu_stat(void)
 		guest_nice = kcpustat_cpu(i).cpustat[CPUTIME_GUEST_NICE];
 		__pr_info("cpu%-2d %8llu %8llu %8llu %8llu %8llu %8llu %8llu %8llu %8llu %8llu\n",
 				i,
-				cputime64_to_clock_t(user),
-				cputime64_to_clock_t(nice),
-				cputime64_to_clock_t(system),
-				cputime64_to_clock_t(idle),
-				cputime64_to_clock_t(iowait),
-				cputime64_to_clock_t(irq),
-				cputime64_to_clock_t(softirq),
-				cputime64_to_clock_t(steal),
-				cputime64_to_clock_t(guest),
-				cputime64_to_clock_t(guest_nice));
+				nsec_to_clock_t(user),
+				nsec_to_clock_t(nice),
+				nsec_to_clock_t(system),
+				nsec_to_clock_t(idle),
+				nsec_to_clock_t(iowait),
+				nsec_to_clock_t(irq),
+				nsec_to_clock_t(softirq),
+				nsec_to_clock_t(steal),
+				nsec_to_clock_t(guest),
+				nsec_to_clock_t(guest_nice));
 	}
 
 	__pr_info(__HLINE_LEFT __HLINE_RIGHT);
