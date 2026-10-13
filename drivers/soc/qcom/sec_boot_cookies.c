@@ -12,7 +12,9 @@
  * Bring-up aid: with sec_boot_cookies.crash_to_recovery=1 the restart reason
  * is set to recovery instead (IMEM at once, PMIC PON reason once the PON
  * driver is up), so a panic, watchdog reset or forced reset of a test kernel
- * lands in recovery, where pstore can be read.
+ * lands in recovery, where pstore can be read. A reboot that doesn't ask for
+ * recovery, bootloader or download sets the PON reason back to Samsung's
+ * NORMALBOOT, so e.g. "adb reboot system" boots the boot partition again.
  */
 
 #define pr_fmt(fmt) "sec_boot_cookies: " fmt
@@ -24,10 +26,15 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/moduleparam.h>
+#include <linux/notifier.h>
+#include <linux/reboot.h>
+#include <linux/string.h>
 
 #define RESTART_REASON_NORMAL	0x0
 #define RESTART_REASON_RECOVERY	0x77665502
 #define UPLOAD_CAUSE_INIT	0xCAFEBABE
+/* Samsung PON restart reason, as written by sec_debug for "userrequested" */
+#define PON_RESTART_REASON_NORMALBOOT	0x14
 
 static bool crash_to_recovery;
 module_param(crash_to_recovery, bool, 0444);
@@ -67,6 +74,26 @@ static int __init sec_boot_cookies_init(void)
 }
 early_initcall(sec_boot_cookies_init);
 
+static int sec_boot_cookies_reboot(struct notifier_block *nb,
+				   unsigned long action, void *data)
+{
+	const char *cmd = data;
+
+	if (action != SYS_RESTART)
+		return NOTIFY_DONE;
+	if (cmd && (!strncmp(cmd, "recovery", 8) ||
+		    !strncmp(cmd, "bootloader", 10) ||
+		    !strncmp(cmd, "download", 8)))
+		return NOTIFY_DONE;
+	qpnp_pon_set_restart_reason((enum pon_restart_reason)
+				    PON_RESTART_REASON_NORMALBOOT);
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block sec_boot_cookies_reboot_nb = {
+	.notifier_call = sec_boot_cookies_reboot,
+};
+
 static int __init sec_boot_cookies_pon_init(void)
 {
 	int ret;
@@ -75,6 +102,7 @@ static int __init sec_boot_cookies_pon_init(void)
 		return 0;
 	ret = qpnp_pon_set_restart_reason(PON_RESTART_REASON_RECOVERY);
 	pr_info("PON restart reason recovery: %d\n", ret);
+	register_reboot_notifier(&sec_boot_cookies_reboot_nb);
 	return 0;
 }
 late_initcall(sec_boot_cookies_pon_init);
