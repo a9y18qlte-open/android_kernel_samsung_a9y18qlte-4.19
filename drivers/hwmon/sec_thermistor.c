@@ -34,13 +34,16 @@
 
 #define ADC_SAMPLING_CNT	7
 
-struct qpnp_vadc_chip *therm_vadc_dev;
-
+/*
+ * 4.19: the pm660 ADC is the IIO ADC5 driver; each thermistor node names
+ * its channel "therm" in io-channels. Raw reads return the ADC code
+ * qpnp_vadc_read() gave in adc_code, which adc_array is made of.
+ */
 struct sec_therm_info {
 	struct device *dev;
 	struct device *hwmon_dev;
 	struct sec_therm_platform_data *pdata;
-	struct qpnp_vadc_chip	*vadc_dev;
+	struct iio_channel	*chan;
 	char name[PLATFORM_NAME_SIZE];
 };
 
@@ -135,23 +138,23 @@ static int sec_therm_get_adc_data(struct sec_therm_info *info)
 	int adc_data, adc_ch;
 	int adc_max = 0, adc_min = 0, adc_total = 0, rc = 0;
 	int i;
-	struct qpnp_vadc_result result;
 
 	adc_ch = info->pdata->adc_channel;
 
-	for (i = 0; i < ADC_SAMPLING_CNT; i++) {
-		rc = qpnp_vadc_read(therm_vadc_dev, adc_ch, &result);
+	if (IS_ERR_OR_NULL(info->chan))
+		return -ENODEV;
 
-		if (rc) {
+	for (i = 0; i < ADC_SAMPLING_CNT; i++) {
+		rc = iio_read_channel_raw(info->chan, &adc_data);
+
+		if (rc < 0) {
 			pr_err("%s: read fail: AMUX(%d), rc(%d)\n",
 					__func__, adc_ch, rc);
 			return rc;
 		} else if (i == 0) {
 			pr_debug("%s: read: AMUX(%d), adc(%d)\n",
-					__func__, adc_ch, result.adc_code);
+					__func__, adc_ch, adc_data);
 		}
-
-		adc_data = result.adc_code;
 
 		if (i != 0) {
 			if (adc_data > adc_max)
@@ -316,12 +319,12 @@ static int sec_therm_probe(struct platform_device *pdev)
 	strlcpy(info->name, pdev_id->name, sizeof(info->name));
 	platform_set_drvdata(pdev, info);
 
-	info->vadc_dev = therm_vadc_dev = qpnp_get_vadc(info->dev, "therm");
+	info->chan = devm_iio_channel_get(&pdev->dev, "therm");
 
-	if (IS_ERR(info->vadc_dev)) {
-		ret = PTR_ERR(info->vadc_dev);
+	if (IS_ERR(info->chan)) {
+		ret = PTR_ERR(info->chan);
 		pr_err("%s: ret(%d)\n", __func__, ret);
-		pr_info("%s: qpnp_get_vadc is fail : ret(%d)\n", __func__, ret); // should be removed
+		pr_info("%s: iio_channel_get is fail : ret(%d)\n", __func__, ret); // should be removed
 		if (ret != -EPROBE_DEFER)
 			pr_err("vadc property missing\n");
 		else
