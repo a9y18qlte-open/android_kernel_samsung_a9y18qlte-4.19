@@ -3597,13 +3597,16 @@ int mmc_detect_card_removed(struct mmc_host *host)
 	 * The card will be considered unchanged unless we have been asked to
 	 * detect a change or host requires polling to provide card detection.
 	 */
-	if (!host->detect_change && !(host->caps & MMC_CAP_NEEDS_POLL))
+	if (!host->detect_change && !(host->caps & MMC_CAP_NEEDS_POLL) &&
+			!(host->caps2 & MMC_CAP2_DETECT_ON_ERR))
 		return ret;
 
 	host->detect_change = 0;
 	if (!ret) {
 		ret = _mmc_detect_card_removed(host);
-		if (ret && (host->caps & MMC_CAP_NEEDS_POLL)) {
+		if (ret && (host->caps & MMC_CAP_NEEDS_POLL ||
+					mmc_card_removed(card) ||
+					host->caps2 & MMC_CAP2_DETECT_ON_ERR)) {
 			/*
 			 * Schedule a detect work as soon as possible to let a
 			 * rescan handle the card removal.
@@ -3811,8 +3814,10 @@ static int mmc_pm_notify(struct notifier_block *notify_block,
 
 		spin_lock_irqsave(&host->lock, flags);
 		host->rescan_disable = 0;
-		if (host->ops->get_cd)
+		if (host->ops->get_cd) {
 			present = host->ops->get_cd(host);
+			mmc_gpiod_update_status(host, present);
+		}
 
 		if (mmc_bus_manual_resume(host) &&
 				!host->ignore_bus_resume_flags &&
