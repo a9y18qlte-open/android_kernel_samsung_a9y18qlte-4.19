@@ -18,7 +18,7 @@
 /* TODO: remove genregs usage? */
 #include "tfa98xx_genregs_N1C.h"
 #if defined(TFADSP_DSP_MSG_APR_PACKET_STRATEGY)
-#include <linux/qdsp6v2/apr_tal.h>
+#include <ipc/apr_tal.h>
 #endif
 
 /* handle macro for bitfield */

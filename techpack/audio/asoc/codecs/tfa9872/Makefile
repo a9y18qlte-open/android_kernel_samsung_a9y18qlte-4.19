@@ -6,13 +6,15 @@ TFADSP_DSP_MSG_APR_PACKET_STRATEGY =1
 TFADSP_DSP_BUFFER_POOL   =1
 TFA_BLACKBOX_LOGGING     =1
 #TFA_WRITE_CAL_TO_FILE=0
-TFA_SRC_DIR              =sound/soc/codecs/$(TFA_VERSION)
+TFA_SRC_DIR              =$(srctree)/techpack/audio/asoc/codecs/$(TFA_VERSION)
 TFA98XX_FLAGS           := -DUSE_TFA9872
 
 # cc flags
 #ccflags-y               := -DDEBUG
 #ccflags-y               += -I$(TFA_SRC_DIR)/inc
 ccflags-y               := -I$(TFA_SRC_DIR)/inc
+# 4.19: techpack/audio headers (ipc/apr_tal.h)
+ccflags-y               += -I$(srctree)/techpack/audio/include
 ccflags-y               += -Werror
 ifdef TFADSP_32BITS
 ccflags-y               += -DTFADSP_32BITS
