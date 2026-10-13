@@ -381,6 +381,26 @@ void hdd_override_all_ps(struct hdd_context *hdd_ctx)
 	hdd_disable_auto_shutdown(cfg_ini);
 }
 
+#ifdef SEC_CONFIG_PSM_SYSFS
+void hdd_sec_override_psm(struct hdd_context *hdd_ctx)
+{
+	struct wlan_objmgr_psoc *psoc = hdd_ctx->psoc;
+	int is_rfmode_off = wlan_hdd_sec_get_psm();
+
+	if (is_rfmode_off)
+		return;
+
+	/* the store is const outside cfg.c, which writes it the same way */
+	printk("[WIFI] sec_control_psm: gEnableImps, gEnableBmps, FastRoamEnabled, FastTransitionEnabled, hostArpOffload = 0");
+	*(bool *)&cfg_get(psoc, CFG_ENABLE_IMPS) = false;
+	*(bool *)&cfg_get(psoc, CFG_ENABLE_PS) = false;
+	// newly added for LFR enabling,disabling.
+	*(bool *)&cfg_get(psoc, CFG_LFR_FEATURE_ENABLED) = false;
+	*(bool *)&cfg_get(psoc, CFG_LFR_FAST_TRANSITION_ENABLED) = false;
+	*(bool *)&cfg_get(psoc, CFG_PMO_ENABLE_HOST_ARPOFFLOAD) = false;
+}
+#endif /* SEC_CONFIG_PSM_SYSFS */
+
 /**
  * hdd_cfg_xlate_to_csr_phy_mode() - convert PHY mode
  * @dot11Mode: the mode to convert
