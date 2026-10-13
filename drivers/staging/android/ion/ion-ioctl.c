@@ -23,8 +23,38 @@ union ion_ioctl_arg {
 	struct ion_fd_data fd;
 	struct ion_old_allocation_data old_allocation;
 	struct ion_handle_data handle;
+	struct ion_custom_data custom;
 #endif
 };
+
+#ifdef CONFIG_ION_LEGACY
+static long ion_legacy_custom_ioctl(struct ion_custom_data *custom)
+{
+	struct ion_flush_data flush;
+	enum ion_legacy_cache_op op;
+
+	switch (custom->cmd) {
+	case ION_IOC_CLEAN_CACHES:
+		op = ION_LEGACY_CLEAN;
+		break;
+	case ION_IOC_INV_CACHES:
+		op = ION_LEGACY_INV;
+		break;
+	case ION_IOC_CLEAN_INV_CACHES:
+		op = ION_LEGACY_CLEAN_INV;
+		break;
+	default:
+		return -ENOTTY;
+	}
+
+	if (copy_from_user(&flush, (void __user *)custom->arg, sizeof(flush)))
+		return -EFAULT;
+
+	/* Legacy handles are the buffer fds (see ION_OLD_IOC_ALLOC) */
+	return ion_legacy_cache_op(flush.handle ? flush.handle : flush.fd, op,
+				   flush.offset, flush.length);
+}
+#endif
 
 static int validate_ioctl_arg(unsigned int cmd, union ion_ioctl_arg *arg)
 {
@@ -161,6 +191,9 @@ long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		break;
 	case ION_IOC_IMPORT:
 		data.fd.handle = data.fd.fd;
+		break;
+	case ION_IOC_CUSTOM:
+		ret = ion_legacy_custom_ioctl(&data.custom);
 		break;
 #endif
 	default:
