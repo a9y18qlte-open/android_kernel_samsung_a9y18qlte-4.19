@@ -21,6 +21,11 @@ typedef struct {
 	uint64_t version;
 } sec_smem_header_t;
 
+/* SMEM item numbers, as in msm-4.4's <soc/qcom/smem.h> */
+#define SMEM_ID_VENDOR0 134
+#define SMEM_ID_VENDOR1 135
+#define SMEM_ID_VENDOR2 136
+
 /* For SMEM_ID_VENDOR0 */
 #define SMEM_VEN0_MAGIC 0x304E4556304E4556
 #define SMEM_VEN0_VER 2

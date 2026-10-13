@@ -870,8 +870,10 @@ void sec_debug_backtrace(void)
 
 	if (!once++) {
 		frame.fp = (unsigned long)__builtin_frame_address(0);
-		frame.sp = current_stack_pointer;
 		frame.pc = (unsigned long)sec_debug_backtrace;
+#ifdef CONFIG_FUNCTION_GRAPH_TRACER
+		frame.graph = current->curr_ret_stack;
+#endif
 
 		while (1) {
 			int ret;

@@ -26,6 +26,7 @@
 
 #include <soc/qcom/boot_stats.h>
 #include <linux/slab.h>
+#include <linux/sched/clock.h>
 
 #define BOOT_EVT_PREFIX			"!@Boot"
 #define BOOT_EVT_PREFIX_NONE		""

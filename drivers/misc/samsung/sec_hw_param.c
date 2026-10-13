@@ -21,6 +21,7 @@
 #include <linux/device.h>
 #include <linux/slab.h>
 #include <linux/stat.h>
+#include <linux/sched/clock.h>
 #include <linux/of.h>
 
 #include <soc/qcom/socinfo.h>

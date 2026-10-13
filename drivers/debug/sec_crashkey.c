@@ -133,9 +133,16 @@ static struct timer_list __crash_timer;
 static LIST_HEAD(key_crash_list);
 static spinlock_t key_crash_lock;
 
+static void (*__crash_timer_cb)(unsigned long);
+
+static void __crash_timer_fn(struct timer_list *t)
+{
+	__crash_timer_cb(0);
+}
+
 static void __init_crash_timer(void)
 {
-	init_timer(&__crash_timer);
+	timer_setup(&__crash_timer, __crash_timer_fn, 0);
 }
 
 static inline void __sec_clear_crash_timer(void)
@@ -147,8 +154,7 @@ static inline void __sec_crash_timer_set(struct sec_crash_key *crash_key)
 {
 	__sec_clear_crash_timer();
 
-	__crash_timer.data = 0;
-	__crash_timer.function = crash_key->callback;
+	__crash_timer_cb = crash_key->callback;
 	__crash_timer.expires =
 			jiffies + msecs_to_jiffies(crash_key->timeout);
 	add_timer(&__crash_timer);

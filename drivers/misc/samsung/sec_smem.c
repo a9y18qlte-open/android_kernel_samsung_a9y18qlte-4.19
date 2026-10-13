@@ -16,9 +16,10 @@
 #define pr_fmt(fmt)     KBUILD_MODNAME ":%s() " fmt, __func__
 
 #include <linux/module.h>
+#include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/pm.h>
-#include <soc/qcom/smem.h>
+#include <linux/soc/qcom/smem.h>
 #include <linux/sec_smem.h>
 #include <linux/notifier.h>
 #include <linux/sec_debug_partition.h>
@@ -53,11 +54,11 @@ static char *lpddr4_manufacture_name[] = {
 
 static void *__get_ddr_smem_entry(unsigned int id)
 {
-	unsigned int size;
+	size_t size = 0;
 	void *entry;
 
-	entry = smem_get_entry(id, &size, SMEM_APPS, SMEM_ANY_HOST_FLAG);
-	if (!size) {
+	entry = qcom_smem_get(QCOM_SMEM_HOST_ANY, id, &size);
+	if (IS_ERR(entry) || !size) {
 		pr_err("entry size can not be zero\n");
 		return NULL;
 	}
