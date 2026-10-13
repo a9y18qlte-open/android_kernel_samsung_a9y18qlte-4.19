@@ -476,6 +476,7 @@ struct mmc_host {
 				 MMC_CAP2_HS200_1_2V_SDR)
 #define MMC_CAP2_SD_EXP		(1 << 7)	/* SD express via PCIe */
 #define MMC_CAP2_SD_EXP_1_2V	(1 << 8)	/* SD express 1.2V */
+#define MMC_CAP2_DETECT_ON_ERR	(1 << 9)	/* On I/O err check card removal */
 #define MMC_CAP2_CD_ACTIVE_HIGH	(1 << 10)	/* Card-detect signal active high */
 #define MMC_CAP2_RO_ACTIVE_HIGH	(1 << 11)	/* Write-protect signal active high */
 #define MMC_CAP2_PACKED_RD      (1 << 12)       /* Allow packed read */
@@ -641,6 +642,8 @@ struct mmc_host {
 	bool crash_on_err;	/* crash the system on error */
 	bool need_hw_reset;
 	atomic_t active_reqs;
+	unsigned int		card_detect_cnt;
+	int (*sdcard_uevent)(struct mmc_card *card);
 	unsigned long		private[0] ____cacheline_aligned;
 };
 

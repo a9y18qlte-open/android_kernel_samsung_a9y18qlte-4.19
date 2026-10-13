@@ -72,6 +72,10 @@ static void sdhci_dump_state(struct sdhci_host *host)
 	mmc_hostname(mmc), mmc->parent->power.runtime_status,
 		atomic_read(&mmc->parent->power.usage_count),
 		mmc->parent->power.disable_depth);
+	pr_info("%s: send %d at %lld, isr %d at %lld, finish_tasklet at %lld.\n", mmc_hostname(mmc),
+			host->send_cmd_idx, host->send_cmd_timestamp,
+			host->irq_cmd_idx, host->irq_timestamp,
+			host->finish_tasklet_timestamp);
 }
 
 void sdhci_dumpregs(struct sdhci_host *host)
@@ -1432,6 +1436,8 @@ void sdhci_send_command(struct sdhci_host *host, struct mmc_command *cmd)
 		host->data_start_time = ktime_get();
 	trace_mmc_cmd_rw_start(cmd->opcode, cmd->arg, cmd->flags);
 	sdhci_writew(host, SDHCI_MAKE_CMD(cmd->opcode, flags), SDHCI_COMMAND);
+	host->send_cmd_timestamp = ktime_to_us(ktime_get());
+	host->send_cmd_idx = cmd->opcode;
 	mmc_log_string(host->mmc,
 		"updated ARGUMENT=0x%08x ARGUMENT_MODE=0x%08x COMMAND=0x%08x\n",
 		sdhci_readl(host, SDHCI_ARGUMENT),
@@ -1920,6 +1926,8 @@ static int sdhci_get_tuning_cmd(struct sdhci_host *host)
 		return MMC_SEND_TUNING_BLOCK;
 }
 
+static int sdhci_card_busy(struct mmc_host *mmc);
+
 static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 {
 	struct sdhci_host *host;
@@ -1955,6 +1963,16 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		else
 			present = sdhci_readl(host, SDHCI_PRESENT_STATE) &
 					SDHCI_CARD_PRESENT;
+	}
+
+	/*
+	 * Check SDcard busy signal by DAT0 before sending CMD13
+	 * about 10ms : 100us * 100 times
+	 */
+	if (present && (mrq->cmd->opcode == MMC_SEND_STATUS)) {
+		int tries = 100;
+		while (sdhci_card_busy(mmc) && --tries)
+			usleep_range(95, 105);
 	}
 
 	spin_lock_irqsave(&host->lock, flags);
@@ -3112,6 +3130,8 @@ static void sdhci_tasklet_finish(unsigned long param)
 {
 	struct sdhci_host *host = (struct sdhci_host *)param;
 
+	host->finish_tasklet_timestamp = ktime_to_us(ktime_get());
+
 	while (!sdhci_request_done(host))
 		;
 }
@@ -3225,6 +3245,9 @@ static void sdhci_cmd_irq(struct sdhci_host *host, u32 intmask, u32 *intmask_p)
 	trace_mmc_cmd_rw_end(host->cmd->opcode, intmask,
 				sdhci_readl(host, SDHCI_RESPONSE));
 
+	host->irq_timestamp = ktime_to_us(ktime_get());
+	host->irq_cmd_idx = host->cmd->opcode;
+
 	if (intmask & (SDHCI_INT_TIMEOUT | SDHCI_INT_CRC |
 		       SDHCI_INT_END_BIT | SDHCI_INT_INDEX |
 		       SDHCI_INT_AUTO_CMD_ERR)) {
@@ -3327,6 +3350,9 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 
 	command = SDHCI_GET_CMD(sdhci_readw(host, SDHCI_COMMAND));
 	trace_mmc_data_rw_end(command, intmask);
+
+	host->irq_timestamp = ktime_to_us(ktime_get());
+	host->irq_cmd_idx = command;
 
 	/* CMD19 generates _only_ Buffer Read Ready interrupt */
 	if (intmask & SDHCI_INT_DATA_AVAIL) {
