@@ -19,8 +19,7 @@
 #include "../qcom/msm-pm660a.dtsi"
 
 #include "sdm660-sec-common.dtsi"
-/* TODO: audio DT, port together with the techpack audio drivers */
-/* #include "sdm660-sec-a9y18qlte-audio.dtsi" */
+#include "sdm660-sec-a9y18qlte-audio.dtsi"
 #include "sdm660-sec-a9y18qlte-eur-r06.dtsi"
 #include "sdm660-sec-a9y18qlte-eur-pinctrl-r06.dtsi"
 #include "sdm660-sec-a9y18qlte-display-r01.dtsi"
