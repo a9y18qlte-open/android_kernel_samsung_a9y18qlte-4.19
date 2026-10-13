@@ -19,6 +19,10 @@
 #include "codecs/sdm660_cdc/msm-analog-cdc.h"
 #include "codecs/wsa881x.h"
 
+#ifdef CONFIG_SAMSUNG_JACK
+#include <linux/sec_jack.h>
+#include <linux/iio/consumer.h>
+#endif /* CONFIG_SAMSUNG_JACK */
 #define __CHIPSET__ "SDM660 "
 #define MSM_DAILINK_NAME(name) (__CHIPSET__#name)
 
@@ -246,6 +250,11 @@ static struct wcd_mbhc_config mbhc_cfg = {
 	.anc_micbias = 0,
 	.enable_anc_mic_detect = false,
 };
+
+#ifdef CONFIG_SAMSUNG_JACK
+static struct snd_soc_jack hs_jack;
+static struct mutex jack_mutex;
+#endif /* CONFIG_SAMSUNG_JACK */
 
 static struct dev_config proxy_rx_cfg = {
 	.sample_rate = SAMPLING_RATE_48KHZ,
@@ -5085,6 +5094,87 @@ err:
 	return ret;
 }
 
+#ifdef CONFIG_SAMSUNG_JACK
+void msm_set_micbias(bool state)
+{
+	struct snd_soc_jack *jack = &hs_jack;
+	struct snd_soc_card *card;
+	struct snd_soc_dapm_context *dapm;
+	char *str = "MIC BIAS Power External2";
+	int ret = 0;
+
+	if (jack->card == NULL) {
+		pr_err("%s card is NULL\n", __func__);
+		return;
+	}
+	pr_info("%s : %s, state=%d\n", __func__, str, state);
+
+	mutex_lock(&jack_mutex);
+	card = jack->card;
+	dapm = &card->dapm;
+
+	if (state == true)
+		ret = snd_soc_dapm_force_enable_pin(dapm, str);
+	else
+		ret = snd_soc_dapm_disable_pin(dapm, str);
+
+	if(ret < 0) {
+		pr_err("%s is failed(%d)\n",
+			__func__, ret);
+	}
+
+	snd_soc_dapm_sync(dapm);
+	mutex_unlock(&jack_mutex);
+}
+
+static int msm_read_jack_adc(struct iio_channel *chan)
+{
+	int uv, ret;
+
+	if (IS_ERR_OR_NULL(chan))
+		return -1;
+
+	ret = iio_read_channel_processed(chan, &uv);
+	if (ret < 0) {
+		pr_err("%s: ADC read failed: %d\n", __func__, ret);
+		return -1;
+	}
+
+	/* Get voltage in microvolts */
+	return uv / 1000;
+}
+
+static int msm_get_adc(void)
+{
+	struct snd_soc_jack *jack = &hs_jack;
+	struct msm_asoc_mach_data *pdata;
+
+	if (jack->card == NULL) {
+		pr_err("%s card is NULL\n", __func__);
+		return -1;
+	}
+
+	pdata = snd_soc_card_get_drvdata(jack->card);
+
+	return msm_read_jack_adc(pdata->earjack_adc);
+}
+
+static int msm_get_moisture_adc(void)
+{
+	struct snd_soc_jack *jack = &hs_jack;
+	struct msm_asoc_mach_data *pdata;
+
+	if (jack->card == NULL) {
+		pr_err("%s card is NULL\n", __func__);
+		return -1;
+	}
+
+	pdata = snd_soc_card_get_drvdata(jack->card);
+
+	return msm_read_jack_adc(pdata->moisture_adc);
+}
+#endif /* CONFIG_SAMSUNG_JACK */
+
 static int msm_wsa881x_init(struct snd_soc_component *component)
 {
 	u8 spkleft_ports[WSA881X_MAX_SWR_PORTS] = {100, 101, 102, 106};
@@ -5509,6 +5599,32 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 	}
 	if (pdata->snd_card_val != INT_SND_CARD)
 		msm_ext_register_audio_notifier(pdev);
+
+#ifdef CONFIG_SAMSUNG_JACK
+	pdata->earjack_adc = devm_iio_channel_get(&pdev->dev, "earjack-read");
+	if (IS_ERR(pdata->earjack_adc)) {
+		dev_err(card->dev, "%s: earjack-read ADC: %ld\n", __func__,
+			PTR_ERR(pdata->earjack_adc));
+		pdata->earjack_adc = NULL;
+	}
+
+	pdata->moisture_adc = devm_iio_channel_get(&pdev->dev,
+						   "moisture-read");
+	if (IS_ERR(pdata->moisture_adc)) {
+		dev_info(card->dev,
+			"doesn`t support moisture detection\n");
+		pdata->moisture_adc = NULL;
+	}
+
+	jack_controls.set_micbias = msm_set_micbias;
+	jack_controls.get_adc = msm_get_adc;
+	jack_controls.get_moisture_adc = msm_get_moisture_adc;
+	jack_controls.snd_card_registered = 1;
+
+	mutex_init(&jack_mutex);
+
+	hs_jack.card = card;
+#endif /* CONFIG_SAMSUNG_JACK */
 
 	pdata->dmic_ldo_en = of_get_named_gpio(pdev->dev.of_node,
 				"qcom,dmic-ldo-en", 0);

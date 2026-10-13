@@ -130,6 +130,10 @@ struct msm_asoc_mach_data {
 	struct delayed_work disable_int_mclk0_work;
 	struct afe_clk_set digital_cdc_core_clk;
 	struct msm_snd_interrupt msm_snd_intr_lpi;
+#ifdef CONFIG_SAMSUNG_JACK
+	struct iio_channel *earjack_adc;
+	struct iio_channel *moisture_adc;
+#endif /* CONFIG_SAMSUNG_JACK */
 	int dmic_ldo_en;
 	int fm_lna_en;
 };
