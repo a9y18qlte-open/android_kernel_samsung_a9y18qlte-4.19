@@ -35,7 +35,9 @@
 extern int factory_mode;
 #endif
 
+/* 4.19 refuses a power supply without properties */
 static enum power_supply_property sm5705_charger_props[] = {
+	POWER_SUPPLY_PROP_ONLINE,
 };
 static struct device_attribute sm5705_charger_attrs[] = {
 	SM5705_CHARGER_ATTR(chip_id),
@@ -1414,7 +1416,7 @@ static int _parse_sm5705_charger_node_propertys(struct device *dev, struct devic
 							sec_charger_platform_data_t *pdata)
 {
 	pdata->chg_gpio_en = of_get_named_gpio(np, "battery,chg_gpio_en", 0); //nCHGEN
-	if (IS_ERR_VALUE(pdata->chg_gpio_en)) {
+	if (IS_ERR_VALUE((unsigned long)pdata->chg_gpio_en)) {
 		pr_info("can't parsing dt:battery,chg_gpio_en\n");
 		return -ENOENT;
 	}
@@ -1431,17 +1433,17 @@ static int _parse_battery_node_propertys(struct device *dev, struct device_node 
 
 	ret = of_property_read_string(np,"battery,wirelss_charger_name",
 				(char const **)&pdata->wireless_charger_name);
-	if (IS_ERR_VALUE(ret))
+	if (IS_ERR_VALUE((unsigned long)ret))
 		dev_err(dev, "%s: can't parsing dt:battery,wirelss_charger_name\n", __func__);
 	else
 		dev_info(dev, "%s: wireless charger name=%s\n", __func__, pdata->wireless_charger_name);
 
 	ret = of_property_read_u32(np, "battery,full_check_type_2nd", &pdata->full_check_type_2nd);
-	if (IS_ERR_VALUE(ret))
+	if (IS_ERR_VALUE((unsigned long)ret))
 		dev_err(dev, "%s: can't parsing dt:battery,full_check_type_2nd\n", __func__);
 	
 	ret = of_property_read_u32(np, "battery,chg_float_voltage", &pdata->chg_float_voltage);
-	if (IS_ERR_VALUE(ret))
+	if (IS_ERR_VALUE((unsigned long)ret))
 		dev_err(dev, "%s: can't parsing dt:battery,chg_float_voltage\n", __func__);
 #if 0
 	array_max_size = _get_of_charging_current_table_max_size(dev, np);
@@ -1526,7 +1528,7 @@ static int sm5705_charger_parse_dt(struct sm5705_charger_data *charger,
 		return -ENOENT;
 	} else {
 		ret = _parse_battery_node_propertys(charger->dev, np, pdata);
-		if (IS_ERR_VALUE(ret))
+		if (IS_ERR_VALUE((unsigned long)ret))
 			return ret;
 	}
 
@@ -1547,7 +1549,7 @@ static sec_charger_platform_data_t *_get_sm5705_charger_platform_data
 	}
 
 	ret = sm5705_charger_parse_dt(charger, pdata);
-	if (IS_ERR_VALUE(ret)) {
+	if (IS_ERR_VALUE((unsigned long)ret)) {
 		pr_err("fail to parse sm5705 charger device tree (ret=%d)\n", ret);
 		kfree(pdata);
 		return NULL;
@@ -1696,7 +1698,7 @@ static int sm5705_charger_probe(struct platform_device *pdev)
 	}
 
 	ret = _init_sm5705_charger_info(pdev, sm5705, charger);
-	if (IS_ERR_VALUE(ret)) {
+	if (IS_ERR_VALUE((unsigned long)ret)) {
 		pr_err("can't initailize sm5705 charger");
 		goto err_free;
 	}
@@ -1708,13 +1710,15 @@ static int sm5705_charger_probe(struct platform_device *pdev)
 
 	charger_cfg.drv_data = charger;
 	charger->psy_chg = power_supply_register(&pdev->dev, &sm5705_charger_power_supply_desc, &charger_cfg);
-	if (!charger->psy_chg) {
+	if (IS_ERR(charger->psy_chg)) {
+		ret = PTR_ERR(charger->psy_chg);
 		dev_err(&pdev->dev, "%s: fail to Register psy_chg\n", __func__);
 		goto err_power_supply_register;
 	}
 
 	charger->psy_otg = power_supply_register(&pdev->dev, &otg_power_supply_desc, &charger_cfg);
-	if (!charger->psy_otg) {
+	if (IS_ERR(charger->psy_otg)) {
+		ret = PTR_ERR(charger->psy_otg);
 		dev_err(&pdev->dev, "%s: fail to Register psy_otg\n", __func__);
 		goto err_power_supply_register_chg;
 	}

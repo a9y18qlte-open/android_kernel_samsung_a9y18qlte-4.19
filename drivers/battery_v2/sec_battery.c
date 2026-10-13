@@ -9378,7 +9378,8 @@ static int sec_battery_probe(struct platform_device *pdev)
 
 	/* init power supplier framework */
 	battery->psy_ps = power_supply_register(&pdev->dev, &ps_power_supply_desc, &battery_cfg);
-	if (!battery->psy_ps) {
+	if (IS_ERR(battery->psy_ps)) {
+		ret = PTR_ERR(battery->psy_ps);
 		dev_err(battery->dev,
 			"%s: Failed to Register psy_ps\n", __func__);
 		goto err_workqueue;
@@ -9387,7 +9388,8 @@ static int sec_battery_probe(struct platform_device *pdev)
 	battery->psy_ps->num_supplicants = ARRAY_SIZE(supply_list);
 
 	battery->psy_wireless = power_supply_register(&pdev->dev, &wireless_power_supply_desc, &battery_cfg);
-	if (!battery->psy_wireless) {
+	if (IS_ERR(battery->psy_wireless)) {
+		ret = PTR_ERR(battery->psy_wireless);
 		dev_err(battery->dev,
 			"%s: Failed to Register psy_wireless\n", __func__);
 		goto err_supply_unreg_ps;
@@ -9396,7 +9398,8 @@ static int sec_battery_probe(struct platform_device *pdev)
 	battery->psy_wireless->num_supplicants = ARRAY_SIZE(supply_list);
 
 	battery->psy_usb = power_supply_register(&pdev->dev, &usb_power_supply_desc, &battery_cfg);
-	if (!battery->psy_usb) {
+	if (IS_ERR(battery->psy_usb)) {
+		ret = PTR_ERR(battery->psy_usb);
 		dev_err(battery->dev,
 			"%s: Failed to Register psy_usb\n", __func__);
 		goto err_supply_unreg_wireless;
@@ -9405,7 +9408,8 @@ static int sec_battery_probe(struct platform_device *pdev)
 	battery->psy_usb->num_supplicants = ARRAY_SIZE(supply_list);
 
 	battery->psy_ac = power_supply_register(&pdev->dev, &ac_power_supply_desc, &battery_cfg);
-	if (!battery->psy_ac) {
+	if (IS_ERR(battery->psy_ac)) {
+		ret = PTR_ERR(battery->psy_ac);
 		dev_err(battery->dev,
 			"%s: Failed to Register psy_ac\n", __func__);
 		goto err_supply_unreg_usb;
@@ -9414,7 +9418,8 @@ static int sec_battery_probe(struct platform_device *pdev)
 	battery->psy_ac->num_supplicants = ARRAY_SIZE(supply_list);
 
 	battery->psy_bat = power_supply_register(&pdev->dev, &battery_power_supply_desc, &battery_cfg);
-	if (!battery->psy_bat) {
+	if (IS_ERR(battery->psy_bat)) {
+		ret = PTR_ERR(battery->psy_bat);
 		dev_err(battery->dev,
 			"%s: Failed to Register psy_bat\n", __func__);
 		goto err_supply_unreg_ac;

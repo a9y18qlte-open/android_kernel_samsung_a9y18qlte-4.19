@@ -2422,7 +2422,8 @@ static int sm5705_fuelgauge_probe(struct i2c_client *client,
 	
 	fuelgauge->psy_fg = power_supply_register(&client->dev, 
 		&sm5705_fuelgauge_power_supply_desc, &fuelgauge_cfg);
-	if (!fuelgauge->psy_fg) {
+	if (IS_ERR(fuelgauge->psy_fg)) {
+		ret = PTR_ERR(fuelgauge->psy_fg);
 		pr_err("%s: Failed to Register psy_fg\n", __func__);
 		goto err_free;
 	}
@@ -2532,7 +2533,7 @@ static const struct dev_pm_ops sm5705_fuelgauge_pm_ops = {
 
 MODULE_DEVICE_TABLE(i2c, sm5705_fuelgauge_id);
 static struct of_device_id fuelgague_i2c_match_table[] = {
-	{ .compatible = "sm5705-fuelgauge,i2c", },
+	{ .compatible = "sm,sm5705-fuelgauge", },
 	{ },
 };
 MODULE_DEVICE_TABLE(i2c, fuelgague_i2c_match_table);
