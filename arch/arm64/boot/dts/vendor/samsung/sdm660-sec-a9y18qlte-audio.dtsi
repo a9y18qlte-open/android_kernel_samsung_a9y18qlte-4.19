@@ -61,10 +61,9 @@
 	qcom,cdc-pdm-gpios = <&cdc_pdm_gpios>;
 	qcom,cdc-comp-gpios = <&cdc_comp_gpios>;
 	qcom,cdc-dmic-gpios = <&cdc_dmic_gpios>;
-	qcom,amux_channel = <0x17>;
-	qcom,moisture-channel = <0x13>;
-	qcom,earjack-read-vadc = <&pm660_vadc>;
-	qcom,moisture-read-vadc = <&pm660_vadc>;
+	/* 4.19: IIO ADC5 channels replace qcom,{amux,moisture}-channel/-vadc */
+	io-channels = <&pm660_vadc ADC_GPIO6>, <&pm660_vadc ADC_GPIO2>;
+	io-channel-names = "earjack-read", "moisture-read";
 	qcom,dmic-ldo-en = <&tlmm 24 0x0>;
 	qcom,fm-lna-gpios = <&expander_gpios 20 0>;
 
@@ -190,8 +189,28 @@
 };
 
 /*
- * 4.19: the qpnp-vadc chan@13/chan@17 (moisture, ear ADC) nodes don't fit
- * the IIO ADC5 binding; the jack channels come with the sec_jack port.
+ * 4.19: the qpnp-vadc chan@13/chan@17 nodes in IIO ADC5 form: absolute
+ * (no qcom,ratiometric), 1:1, 200 us settle, decimation 256 (4.4 index 0).
+ */
+&pm660_vadc {
+	moisture_adc {
+		reg = <ADC_GPIO2>;
+		label = "moisture_adc";
+		qcom,pre-scaling = <1 1>;
+		qcom,hw-settle-time = <200>;
+		qcom,decimation = <256>;
+	};
+
+	ear_adc_35 {
+		reg = <ADC_GPIO6>;
+		label = "ear_adc_35";
+		qcom,pre-scaling = <1 1>;
+		qcom,hw-settle-time = <200>;
+		qcom,decimation = <256>;
+	};
+};
+
+/*
  * The legacy qpnp-pin PM660 GPIO 3/9/11 setup lives in
  * sdm660-sec-a9y18qlte-pmic-gpio.dtsi; GPIO 2 (output, no consumer) is
  * left at its reset state.
