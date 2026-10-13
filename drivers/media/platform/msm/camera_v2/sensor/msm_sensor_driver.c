@@ -19,12 +19,35 @@
 #include "msm_cci.h"
 #include "msm_camera_dt_util.h"
 #include "msm_sensor_driver.h"
+#include "msm_sensor_init.h"
 
 /* Logging macro */
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 
 #define SENSOR_MAX_MOUNTANGLE (360)
+
+#if defined (CONFIG_CAMERA_SYSFS_V2)
+extern char rear_cam_info[CAMERA_INFO_MAXSIZE];        //camera_info
+extern char front_cam_info[CAMERA_INFO_MAXSIZE];    //camera_info
+#if defined(CONFIG_SAMSUNG_MULTI_CAMERA)
+#if defined(CONFIG_CAMERA_DUAL_REAR)
+extern char rear2_cam_info[CAMERA_INFO_MAXSIZE];    //camera_info
+#endif
+#if defined(CONFIG_CAMERA_QUAD_REAR)
+extern char rear3_cam_info[CAMERA_INFO_MAXSIZE];    //camera_info
+extern char rear4_cam_info[CAMERA_INFO_MAXSIZE];    //camera_info
+#endif
+#if defined(CONFIG_CAMERA_DUAL_FRONT)
+extern char front2_cam_info[CAMERA_INFO_MAXSIZE];    //camera_info
+#endif
+#endif
+#if defined(CONFIG_SAMSUNG_SECURE_CAMERA)
+extern char iris_cam_info[100];    //camera_info
+#endif
+#endif
+
+struct mutex sensor_pwr_lock;
 
 static struct v4l2_file_operations msm_sensor_v4l2_subdev_fops;
 static int32_t msm_sensor_driver_platform_probe(struct platform_device *pdev);
@@ -1064,6 +1087,7 @@ int32_t msm_sensor_driver_probe(void *setting,
 	cci_client->id_map = 0;
 	cci_client->i2c_freq_mode = slave_info->i2c_freq_mode;
 
+	if (s_ctrl->sensordata->power_info.num_vreg > 0) {
 	/* Parse and fill vreg params for powerup settings */
 	rc = msm_camera_fill_vreg_params(
 		s_ctrl->sensordata->power_info.cam_vreg,
@@ -1086,6 +1110,7 @@ int32_t msm_sensor_driver_probe(void *setting,
 		pr_err("failed: msm_camera_fill_vreg_params for PDOWN rc %d\n",
 			rc);
 		goto free_camera_info;
+	}
 	}
 
 CSID_TG:
@@ -1350,6 +1375,68 @@ static int32_t msm_sensor_driver_get_dt_data(struct msm_sensor_ctrl_t *s_ctrl)
 	CDBG("%s qcom,mclk-23880000 = %d\n", __func__,
 		s_ctrl->set_mclk_23880000);
 
+#if defined (CONFIG_CAMERA_SYSFS_V2)
+	/* camera information */
+	if (cell_id == 0) {
+		rc = msm_camera_get_dt_camera_info(of_node, rear_cam_info);
+		if (rc < 0) {
+			pr_err("failed: msm_camera_get_dt_camera_info for rear rc %d", rc);
+			goto FREE_VREG_DATA;
+		}
+	}
+	else if (cell_id == 1){
+		rc = msm_camera_get_dt_camera_info(of_node, front_cam_info);
+		if (rc < 0) {
+			pr_err("failed: msm_camera_get_dt_camera_info for front rc %d", rc);
+			goto FREE_VREG_DATA;
+		}
+	}
+#if defined(CONFIG_SAMSUNG_MULTI_CAMERA)
+#if defined(CONFIG_CAMERA_DUAL_REAR)
+	else if (cell_id == 2) {
+		rc = msm_camera_get_dt_camera_info(of_node, rear2_cam_info);
+		if (rc < 0) {
+			pr_err("failed: msm_camera_get_dt_camera_info for rear2 rc %d", rc);
+			goto FREE_VREG_DATA;
+		}
+	}
+#endif
+#if defined(CONFIG_CAMERA_QUAD_REAR)
+	else if (cell_id == 3) {
+		rc = msm_camera_get_dt_camera_info(of_node, rear3_cam_info);
+		if (rc < 0) {
+			pr_err("failed: msm_camera_get_dt_camera_info for rear3 rc %d", rc);
+			goto FREE_VREG_DATA;
+		}
+	}
+	else if (cell_id == 4) {
+		rc = msm_camera_get_dt_camera_info(of_node, rear4_cam_info);
+		if (rc < 0) {
+			pr_err("failed: msm_camera_get_dt_camera_info for rear4 rc %d", rc);
+			goto FREE_VREG_DATA;
+		}
+	}
+#endif
+#if defined(CONFIG_CAMERA_DUAL_FRONT)
+	else if (cell_id == 2) {
+		rc = msm_camera_get_dt_camera_info(of_node, front2_cam_info);
+		if (rc < 0) {
+			pr_err("failed: msm_camera_get_dt_camera_info for front2 rc %d", rc);
+			goto FREE_VREG_DATA;
+		}
+	}
+#endif
+#endif
+#if defined(CONFIG_SAMSUNG_SECURE_CAMERA)
+	else if (cell_id == 4) {
+		rc = msm_camera_get_dt_camera_info(of_node, iris_cam_info);
+		if (rc < 0) {
+			pr_err("failed: msm_camera_get_dt_camera_info for iris rc %d", rc);
+			goto FREE_VREG_DATA;
+		}
+	}
+#endif
+#endif
 	return rc;
 
 FREE_VREG_DATA:
@@ -1548,6 +1635,7 @@ static const struct i2c_device_id i2c_id[] = {
 	{ }
 };
 
+#if 0
 static struct i2c_driver msm_sensor_driver_i2c = {
 	.id_table = i2c_id,
 	.probe  = msm_sensor_driver_i2c_probe,
@@ -1556,11 +1644,25 @@ static struct i2c_driver msm_sensor_driver_i2c = {
 		.name = SENSOR_DRIVER_I2C,
 	},
 };
+#else
+static struct i2c_driver msm_sensor_driver_i2c = {
+	.id_table = i2c_id,
+	.probe  = msm_sensor_driver_i2c_probe,
+	.remove = msm_sensor_driver_i2c_remove,
+	.driver = {
+		.name = "qcom,camera",
+		.owner = THIS_MODULE,
+		.of_match_table = msm_sensor_driver_dt_match,
+	},
+};
+#endif
+
+struct mutex g_sensor_mutex; 
 
 static int __init msm_sensor_driver_init(void)
 {
 	int32_t rc = 0;
-
+	mutex_init(&g_sensor_mutex); 
 	CDBG("%s Enter\n", __func__);
 	rc = platform_driver_register(&msm_sensor_platform_driver);
 	if (rc)
@@ -1578,6 +1680,8 @@ static void __exit msm_sensor_driver_exit(void)
 	CDBG("Enter");
 	platform_driver_unregister(&msm_sensor_platform_driver);
 	i2c_del_driver(&msm_sensor_driver_i2c);
+	mutex_destroy(&g_sensor_mutex); 
+	return;
 }
 
 module_init(msm_sensor_driver_init);
