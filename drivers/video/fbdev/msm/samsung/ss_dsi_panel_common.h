@@ -48,12 +48,10 @@ Copyright (C) 2012, Samsung Electronics. All rights reserved.
 #include <linux/interrupt.h>
 #include <linux/msm-bus.h>
 /*#include <linux/hall.h>*/
-#include <linux/sync.h>
-#include <linux/sw_sync.h>
 #include <linux/sched.h>
 #include <linux/dma-buf.h>
 #include <linux/debugfs.h>
-#include <linux/wakelock.h>
+#include <linux/pm_wakeup.h>
 #include <linux/miscdevice.h>
 
 #include "../mdss.h"
@@ -1138,7 +1136,7 @@ struct samsung_display_driver_data {
 	int send_esd_recovery;
 
 	/* DOZE */
-	struct wake_lock doze_wakelock;
+	struct wakeup_source *doze_wakelock;
 
 	/* graudal acl */
 	int gradual_acl_val;

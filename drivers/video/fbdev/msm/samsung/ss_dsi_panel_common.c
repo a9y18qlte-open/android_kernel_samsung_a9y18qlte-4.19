@@ -3346,16 +3346,25 @@ void mdss_samsung_panel_pbaboot_config(struct device_node *np,
 			struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	struct mdss_panel_info *pinfo = NULL;
+#if defined(CONFIG_DEBUG_FS)
 	struct mdss_debug_data *mdd =
 		(struct mdss_debug_data *)((mdss_mdp_get_mdata())->debug_inf.debug_data);
+#endif
 	struct samsung_display_driver_data *vdd = NULL;
 	bool need_to_force_vidoe_mode = false;
 
+#if defined(CONFIG_DEBUG_FS)
 	if (IS_ERR_OR_NULL(ctrl) || IS_ERR_OR_NULL(mdd)) {
 		LCD_ERR("Invalid data ctrl : 0x%zx, mdd : 9x%zx\n",
 				(size_t)ctrl, (size_t)mdd);
 		return;
 	}
+#else
+	if (IS_ERR_OR_NULL(ctrl)) {
+		LCD_ERR("Invalid data ctrl : 0x%zx\n", (size_t)ctrl);
+		return;
+	}
+#endif
 
 	pinfo = &ctrl->panel_data.panel_info;
 	vdd = check_valid_ctrl(ctrl);
@@ -3403,7 +3412,9 @@ void mdss_samsung_panel_pbaboot_config(struct device_node *np,
 		ctrl->off_cmds.link_state = DSI_LP_MODE;
 
 		/* To avoid underrun panic*/
+#if defined(CONFIG_DEBUG_FS)
 		mdd->logd.xlog_enable = 0;
+#endif
 		vdd->dtsi_data[ctrl->ndx].samsung_osc_te_fitting = false;
 	}
 }
