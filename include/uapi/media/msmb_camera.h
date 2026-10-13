@@ -58,6 +58,7 @@
 #define MSM_CAMERA_SUBDEV_EXT          (MSM_CAMERA_SUBDEV_BASE + 19)
 #define MSM_CAMERA_SUBDEV_TOF          (MSM_CAMERA_SUBDEV_BASE + 20)
 #define MSM_CAMERA_SUBDEV_LASER_LED    (MSM_CAMERA_SUBDEV_BASE + 21)
+#define MSM_CAMERA_SUBDEV_OTP          (MSM_CAMERA_SUBDEV_BASE + 22)
 #define MSM_MAX_CAMERA_SENSORS  5
 
 /* The below macro is defined to put an upper limit on maximum
@@ -67,7 +68,7 @@
  * can have max of 9 groups of 8 bufs each. This value may be
  * configured in future
  */
-#define MSM_CAMERA_MAX_STREAM_BUF 72
+#define MSM_CAMERA_MAX_STREAM_BUF 128
 
 /* Max batch size of processing */
 #define MSM_CAMERA_MAX_USER_BUFF_CNT 16
