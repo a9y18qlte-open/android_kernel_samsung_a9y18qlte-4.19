@@ -1027,6 +1027,14 @@ ifeq ($(CONFIG_STRIP_ASM_SYMS),y)
 LDFLAGS_vmlinux	+= $(call ld-option, -X,)
 endif
 
+ifneq ($(SEC_BUILD_CONF_USE_FINGERPRINT_TZ),false)
+  ifeq ($(CONFIG_SENSORS_FINGERPRINT),y)
+    ifneq ($(CONFIG_SEC_FACTORY),y)
+      export KBUILD_FP_SENSOR_CFLAGS := -DENABLE_SENSORS_FPRINT_SECURE
+    endif
+  endif
+endif
+
 ifeq ($(CONFIG_RELR),y)
 # ld.lld before 15 did not support -z pack-relative-relocs.
 LDFLAGS_vmlinux	+= $(call ld-option,--pack-dyn-relocs=relr,-z pack-relative-relocs)
