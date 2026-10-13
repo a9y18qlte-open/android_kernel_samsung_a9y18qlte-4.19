@@ -122,7 +122,7 @@ static int sm5705_FLEDx_mode_enable(struct sm5705_fled_info *sm5705_fled, int in
 	int ret;
 
 	ret = sm5705_update_reg(sm5705_fled->i2c, SM5705_REG_FLED1CNTL1 + (index * 4), (FLEDxEN & 0x3), 0x3);
-	if (IS_ERR_VALUE(ret)) {
+	if (IS_ERR_VALUE((unsigned long)ret)) {
 		dev_err(sm5705_fled->dev, "%s: fail to update REG:FLED%dEN (value=%d)\n", __func__, index, FLEDxEN);
 		return ret;
 	}
@@ -149,7 +149,7 @@ static int sm5705_FLEDx_oneshot_config(struct sm5705_fled_info *sm5705_fled, int
 
 	reg_val = (((!enable) & 0x1) << 4) | (_calc_oneshot_time_offset_to_ms(timer_ms) & 0xF);
 	ret = sm5705_write_reg(sm5705_fled->i2c, SM5705_REG_FLED1CNTL2 + (index * 4), reg_val);
-	if (IS_ERR_VALUE(ret)) {
+	if (IS_ERR_VALUE((unsigned long)ret)) {
 		dev_err(sm5705_fled->dev, "%s: fail to write REG:FLED%dCNTL2 (value=%d)\n", __func__, index, reg_val);
 		return ret;
 	}
@@ -174,7 +174,7 @@ static int sm5705_FLEDx_set_flash_current(struct sm5705_fled_info *sm5705_fled, 
 
 	reg_val = _calc_flash_current_offset_to_mA(index, current_mA);
 	ret = sm5705_write_reg(sm5705_fled->i2c, SM5705_REG_FLED1CNTL3 + (index * 4), reg_val);
-	if (IS_ERR_VALUE(ret)) {
+	if (IS_ERR_VALUE((unsigned long)ret)) {
 		dev_err(sm5705_fled->dev, "%s: fail to write REG:FLED%dCNTL3 (value=%d)\n", __func__, index, reg_val);
 		return ret;
 	}
@@ -199,7 +199,7 @@ static int sm5705_FLEDx_set_torch_current(struct sm5705_fled_info *sm5705_fled, 
 
 	reg_val = _calc_torch_current_offset_to_mA(current_mA);
 	ret = sm5705_write_reg(sm5705_fled->i2c, SM5705_REG_FLED1CNTL4 + (index * 4), reg_val);
-	if (IS_ERR_VALUE(ret)) {
+	if (IS_ERR_VALUE((unsigned long)ret)) {
 		dev_err(sm5705_fled->dev, "%s: fail to write REG:FLED%dCNTL4 (value=%d)\n", __func__, index, reg_val);
 		return ret;
 	}
@@ -286,14 +286,14 @@ static int sm5705_fled_initialize(struct sm5705_fled_info *sm5705_fled)
 	for (i=0; i < SM5705_FLED_MAX; ++i) {
 		if (pdata->led[i].used_gpio) {
 			ret = gpio_request(pdata->led[i].flash_en_pin, "sm5705_fled");
-			if (IS_ERR_VALUE(ret)) {
+			if (IS_ERR_VALUE((unsigned long)ret)) {
 				dev_err(dev, "%s: fail to request flash gpio pin = %d (ret=%d)\n", __func__, pdata->led[i].flash_en_pin, ret);
 				return ret;
 			}
 			gpio_direction_output(pdata->led[i].flash_en_pin, 0);
 
 			ret = gpio_request(pdata->led[i].torch_en_pin, "sm5705_fled");
-			if (IS_ERR_VALUE(ret)) {
+			if (IS_ERR_VALUE((unsigned long)ret)) {
 				dev_err(dev, "%s: fail to request torch gpio pin = %d (ret=%d)\n", __func__, pdata->led[i].torch_en_pin, ret);
 				return ret;
 			}
@@ -305,7 +305,7 @@ static int sm5705_fled_initialize(struct sm5705_fled_info *sm5705_fled)
 			dev_info(dev, "SM5705 FLED[%d] used I2C control Mode\n", i);
 		}
 		ret = sm5705_FLEDx_mode_enable(sm5705_fled, i, SM5705_FLED_OFF_MODE);
-		if (IS_ERR_VALUE(ret)) {
+		if (IS_ERR_VALUE((unsigned long)ret)) {
 			dev_err(dev, "%s: fail to set FLED[%d] external control mode\n", __func__, i);
 			return ret;
 		}
@@ -343,7 +343,7 @@ static inline int _fled_turn_on_torch(struct sm5705_fled_info *sm5705_fled, int 
 
 	if (pdata->led[index].used_gpio) {
 		ret = sm5705_FLEDx_mode_enable(sm5705_fled, index, SM5705_FLED_ON_EXTERNAL_CONTROL_MODE);
-		if (IS_ERR_VALUE(ret)) {
+		if (IS_ERR_VALUE((unsigned long)ret)) {
 			dev_err(dev, "%s: fail to set FLED[%d] External control mode\n", __func__, index);
 			return ret;
 		}
@@ -351,7 +351,7 @@ static inline int _fled_turn_on_torch(struct sm5705_fled_info *sm5705_fled, int 
 		gpio_set_value(pdata->led[index].torch_en_pin, 1);
 	} else {
 		ret = sm5705_FLEDx_mode_enable(sm5705_fled, index, SM5705_FLED_ON_MOVIE_MODE);
-		if (IS_ERR_VALUE(ret)) {
+		if (IS_ERR_VALUE((unsigned long)ret)) {
 			dev_err(dev, "%s: fail to set FLED[%d] Movie mode\n", __func__, index);
 			return ret;
 		}
@@ -377,7 +377,7 @@ static int sm5705_fled_turn_on_torch(struct sm5705_fled_info *sm5705_fled, int i
 	}
 
 	ret = sm5705_FLEDx_set_torch_current(sm5705_fled, index, current_mA);
-	if (IS_ERR_VALUE(ret)) {
+	if (IS_ERR_VALUE((unsigned long)ret)) {
 		if (fimc_is_activated == 0) {
 			sm5705_fled_muic_flash_off_prepare();
 		}
@@ -397,7 +397,7 @@ static int sm5705_fled_turn_on_flash(struct sm5705_fled_info *sm5705_fled, int i
 	int ret;
 
 	ret = sm5705_FLEDx_set_flash_current(sm5705_fled, index, current_mA);
-	if (IS_ERR_VALUE(ret)) {
+	if (IS_ERR_VALUE((unsigned long)ret)) {
 		dev_err(dev, "%s: fail to set FLED[%d] flash current (current_mA=%d)\n", __func__, index, current_mA);
 		return ret;
 	}
@@ -411,7 +411,7 @@ static int sm5705_fled_turn_on_flash(struct sm5705_fled_info *sm5705_fled, int i
 
 	if (pdata->led[index].used_gpio) {
 		ret = sm5705_FLEDx_mode_enable(sm5705_fled, index, SM5705_FLED_ON_EXTERNAL_CONTROL_MODE);
-		if (IS_ERR_VALUE(ret)) {
+		if (IS_ERR_VALUE((unsigned long)ret)) {
 			dev_err(dev, "%s: fail to set FLED[%d] External control mode\n", __func__, index);
 			return ret;
 		}
@@ -419,7 +419,7 @@ static int sm5705_fled_turn_on_flash(struct sm5705_fled_info *sm5705_fled, int i
 		gpio_set_value(pdata->led[index].flash_en_pin, 1);
 	} else {
 		ret = sm5705_FLEDx_mode_enable(sm5705_fled, index, SM5705_FLED_ON_FLASH_MODE);
-		if (IS_ERR_VALUE(ret)) {
+		if (IS_ERR_VALUE((unsigned long)ret)) {
 			dev_err(dev, "%s: fail to set FLED[%d] Flash mode\n", __func__, index);
 			return ret;
 		}
@@ -444,7 +444,7 @@ static int sm5705_fled_turn_off(struct sm5705_fled_info *sm5705_fled, int index)
 	pr_debug("sm5705-fled : %s fimc_is_activated=%d\n", __func__, fimc_is_activated);
 
 	ret = sm5705_FLEDx_mode_enable(sm5705_fled, index, SM5705_FLED_OFF_MODE);
-	if (IS_ERR_VALUE(ret)) {
+	if (IS_ERR_VALUE((unsigned long)ret)) {
 		dev_err(dev, "%s: fail to set FLED[%d] OFF mode\n", __func__, index);
 		return ret;
 	}
@@ -455,7 +455,7 @@ static int sm5705_fled_turn_off(struct sm5705_fled_info *sm5705_fled, int index)
 	}
 
 	ret = sm5705_FLEDx_set_flash_current(sm5705_fled, index, 0);
-	if (IS_ERR_VALUE(ret)) {
+	if (IS_ERR_VALUE((unsigned long)ret)) {
 		dev_err(dev, "%s: fail to set FLED[%d] flash current\n", __func__, index);
 		return ret;
 	}
@@ -464,7 +464,7 @@ static int sm5705_fled_turn_off(struct sm5705_fled_info *sm5705_fled, int index)
 	if ((assistive_light[0] == false) && (assistive_light[1] == false))
 	{
 		ret = sm5705_FLEDx_set_torch_current(sm5705_fled, index, 0);
-		if (IS_ERR_VALUE(ret)) {
+		if (IS_ERR_VALUE((unsigned long)ret)) {
 			dev_err(dev, "%s: fail to set FLED[%d] torch current\n", __func__, index);
 			return ret;
 		}
@@ -787,7 +787,7 @@ static ssize_t sm5705_rear_flash_store(struct device *dev, struct device_attribu
 
 		/* set the current */
 		ret = sm5705_FLEDx_set_flash_current(sm5705_fled, index, value_u32);
-		if (IS_ERR_VALUE(ret)) {
+		if (IS_ERR_VALUE((unsigned long)ret)) {
 			dev_err(dev, "%s: fail to set FLED[%d] flash current (current_mA=%d)\n",
 				__func__, index, value_u32);
 			return ret;
@@ -868,7 +868,7 @@ static ssize_t sm5705_rear_flash_store(struct device *dev, struct device_attribu
 		}
 		break;
 	}
-	if (IS_ERR_VALUE(ret)) {
+	if (IS_ERR_VALUE((unsigned long)ret)) {
 	dev_err(dev, "%s: fail to rear flash file operation:store (value=%d, ret=%d)\n", __func__, value_u32, ret);
 	}
 
@@ -1062,7 +1062,7 @@ static inline struct sm5705_fled_platform_data *_get_sm5705_fled_platform_data(s
 	}
 
 	ret = sm5705_fled_parse_dt(sm5705, pdata);
-	if (IS_ERR_VALUE(ret)) {
+	if (IS_ERR_VALUE((unsigned long)ret)) {
 		dev_err(dev, "%s: fail to parse dt for sm5705 flash-led (ret=%d)\n", __func__, ret);
 		goto out_kfree_p;
 	}
@@ -1123,7 +1123,7 @@ static int sm5705_led_probe(struct platform_device *pdev)
 	g_sm5705_fled = sm5705_fled;
 
 	ret = sm5705_fled_initialize(sm5705_fled);
-	if (IS_ERR_VALUE(ret)) {
+	if (IS_ERR_VALUE((unsigned long)ret)) {
 		dev_err(dev, "%s: fail to initialize SM5705 Flash-LED[%d] (ret=%d)\n", __func__, i, ret);
 		goto fled_init_err;
 	}
@@ -1143,13 +1143,13 @@ static int sm5705_led_probe(struct platform_device *pdev)
 	sm5705_fled->rear_fled_dev->parent = dev;
 
 	ret = device_create_file(sm5705_fled->rear_fled_dev, &dev_attr_rear_flash);
-	if (IS_ERR_VALUE(ret)) {
+	if (IS_ERR_VALUE((unsigned long)ret)) {
 		dev_err(dev, "%s fail to create device file for rear_flash\n", __func__);
 		goto fled_rear_device_err;
 	}
 #if defined(CONFIG_DUAL_LEDS_FLASH)
 	ret = device_create_file(sm5705_fled->rear_fled_dev, &dev_attr_rear_flash_2);
-    if (IS_ERR_VALUE(ret)) {
+    if (IS_ERR_VALUE((unsigned long)ret)) {
 		dev_err(dev, "%s fail to create device file for rear_flash\n", __func__);
 		goto fled_rear_device_err2;
     }
