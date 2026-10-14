@@ -2665,7 +2665,10 @@ long tty_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		break;
 	case TIOCGPTPEER:
 		/* Special because the struct file is needed */
-		return ptm_open_peer(file, tty, (int)arg);
+		if (tty->driver->type == TTY_DRIVER_TYPE_PTY)
+			return ptm_open_peer(file, tty, (int)arg);
+		/* 4.4 msm userspace sends TIOCPMGET as 0x5441 */
+		break;
 	default:
 		retval = tty_jobctrl_ioctl(tty, real_tty, file, cmd, arg);
 		if (retval != -ENOIOCTLCMD)
