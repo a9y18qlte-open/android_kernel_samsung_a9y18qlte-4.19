@@ -5049,8 +5049,8 @@ static int msm_vidc_check_mbpf_supported(struct msm_vidc_inst *inst)
 		/* ignore thumbnail session */
 		if (is_thumbnail_session(temp))
 			continue;
-		 mbpf += NUM_MBS_PER_FRAME(inst->prop.width[OUTPUT_PORT],
-				inst->prop.height[OUTPUT_PORT]);
+		mbpf += NUM_MBS_PER_FRAME(temp->prop.width[OUTPUT_PORT],
+				temp->prop.height[OUTPUT_PORT]);
 	}
 	mutex_unlock(&core->lock);
 	if (mbpf > 2*capability->mbs_per_frame.max) {
