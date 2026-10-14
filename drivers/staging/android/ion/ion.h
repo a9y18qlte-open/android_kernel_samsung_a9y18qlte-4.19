@@ -301,6 +301,8 @@ enum ion_legacy_cache_op {
 
 int ion_legacy_cache_op(int fd, enum ion_legacy_cache_op op,
 			unsigned int offset, unsigned int length);
+int ion_legacy_dup_fd(int fd);
+int ion_legacy_free_fd(int fd);
 #endif
 
 /**

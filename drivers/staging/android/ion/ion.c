@@ -35,6 +35,7 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/ion.h>
 #include <soc/qcom/secure_buffer.h>
+#include <linux/syscalls.h>
 
 #include "ion.h"
 #include "ion_secure_util.h"
@@ -1149,6 +1150,51 @@ int ion_alloc_fd(size_t len, unsigned int heap_id_mask, unsigned int flags)
 }
 
 #ifdef CONFIG_ION_LEGACY
+/*
+ * Legacy ION handles are buffer fds. As with pre-4.12 handles, SHARE/MAP and
+ * IMPORT must give userspace a descriptor of its own, and FREE must drop the
+ * handle's one: 4.4 userspace closes shared fds and frees handles
+ * independently, so handing out the same fd for both let it close a
+ * descriptor twice and reach another buffer through the reused number.
+ */
+int ion_legacy_dup_fd(int fd)
+{
+	struct dma_buf *dmabuf;
+	int new_fd;
+
+	dmabuf = dma_buf_get(fd);
+	if (IS_ERR(dmabuf))
+		return PTR_ERR(dmabuf);
+
+	if (dmabuf->ops != &dma_buf_ops) {
+		dma_buf_put(dmabuf);
+		return -EINVAL;
+	}
+
+	new_fd = dma_buf_fd(dmabuf, O_CLOEXEC);
+	if (new_fd < 0)
+		dma_buf_put(dmabuf);
+
+	return new_fd;
+}
+
+int ion_legacy_free_fd(int fd)
+{
+	struct dma_buf *dmabuf;
+	bool is_ion;
+
+	dmabuf = dma_buf_get(fd);
+	if (IS_ERR(dmabuf))
+		return PTR_ERR(dmabuf);
+
+	is_ion = dmabuf->ops == &dma_buf_ops;
+	dma_buf_put(dmabuf);
+	if (!is_ion)
+		return -EINVAL;
+
+	return ksys_close(fd);
+}
+
 /*
  * Legacy msm ION cache maintenance (ION_IOC_CLEAN/INV/CLEAN_INV_CACHES) as
  * pre-4.12 kernels did it: on the buffer's pages, whether or not a device
