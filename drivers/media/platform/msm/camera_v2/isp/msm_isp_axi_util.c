@@ -2127,9 +2127,8 @@ static int msm_isp_cfg_ping_pong_address(
 		buf = msm_isp_get_stream_buffer(vfe_dev, stream_info);
 
 	if (!buf) {
+		/* Scratch counts as configured for every stream, as on 4.4 */
 		msm_isp_cfg_stream_scratch(stream_info, pingpong_status);
-		if (stream_info->controllable_output)
-			return 1;
 		return 0;
 	}
 
@@ -3731,13 +3730,11 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 	pingpong_status =
 		vfe_dev->hw_info->vfe_ops.axi_ops.get_pingpong_status(vfe_dev);
 
-	/* As MCT is still processing it, need to drop the additional requests*/
-	if (vfe_dev->isp_page->drop_reconfig &&
-		frame_src == VFE_PIX_0) {
-		pr_err("%s: MCT has not yet delayed %d drop request %d\n",
-			__func__, vfe_dev->isp_page->drop_reconfig, frame_id);
-		goto error;
-	}
+	/*
+	 * The a9y18qlte mm-camera predates the isp_page drop_reconfig
+	 * handshake (it never clears the flag), so reject badly timed
+	 * requests as 4.4 did instead of parking them in drop_reconfig.
+	 */
 
 	/*
 	 * If PIX stream is active then RDI path uses SOF frame ID of PIX
@@ -3749,27 +3746,12 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 	 */
 	if (vfe_dev->axi_data.src_info[frame_src].active &&
 		frame_src == VFE_PIX_0 &&
-		!vfe_dev->axi_data.src_info[frame_src].accept_frame &&
-		(stream_info->undelivered_request_cnt <=
-			MAX_BUFFERS_IN_HW)
-		) {
-		pr_debug("%s:%d invalid time to request frame %d try drop_reconfig\n",
+		!vfe_dev->axi_data.src_info[frame_src].accept_frame) {
+		pr_debug("%s:%d invalid time to request frame %d\n",
 			__func__, __LINE__, frame_id);
-		vfe_dev->isp_page->drop_reconfig = 1;
-		return 0;
-	} else if ((vfe_dev->axi_data.src_info[frame_src].active) &&
-			((frame_id ==
-			vfe_dev->axi_data.src_info[frame_src].frame_id) ||
-			(frame_id == vfe_dev->irq_sof_id)) &&
-			(stream_info->undelivered_request_cnt <=
-				MAX_BUFFERS_IN_HW)) {
-		vfe_dev->isp_page->drop_reconfig = 1;
-		pr_debug("%s: vfe_%d request_frame %d cur frame id %d pix %d try drop_reconfig\n",
-			__func__, vfe_dev->pdev->id, frame_id,
-			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id,
-			vfe_dev->axi_data.src_info[VFE_PIX_0].active);
-		return 0;
-	} else if ((vfe_dev->axi_data.src_info[frame_src].active && (frame_id !=
+		goto error;
+	}
+	if ((vfe_dev->axi_data.src_info[frame_src].active && (frame_id !=
 		vfe_dev->axi_data.src_info[frame_src].frame_id +
 		vfe_dev->axi_data.src_info[frame_src].sof_counter_step)) ||
 		((!vfe_dev->axi_data.src_info[frame_src].active))) {
@@ -3793,14 +3775,21 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 		 * As per the hw behavior wm should be disabled or skip writing
 		 * before reload happens other wise wm could start writing from
 		 * middle of the frame and could result in image corruption.
-		 * instead of dropping frame in this error scenario use
-		 * drop_reconfig flag to process the request in next sof.
+		 * Drop this request and stop the stream until the next one.
 		 */
 		pr_debug("%s:%d vfe %d frame_id %d prev_pattern %x stream_id %x\n",
 			__func__, __LINE__, vfe_dev->pdev->id, frame_id,
 			stream_info->activated_framedrop_period,
 			stream_info->stream_id);
-		vfe_dev->isp_page->drop_reconfig = 1;
+
+		rc = msm_isp_return_empty_buffer(vfe_dev, stream_info,
+			user_stream_id, frame_id, buf_index, frame_src);
+		if (rc < 0)
+			pr_err("%s:%d failed: return_empty_buffer src %d\n",
+				__func__, __LINE__, frame_src);
+		stream_info->current_framedrop_period =
+			MSM_VFE_STREAM_STOP_PERIOD;
+		msm_isp_cfg_framedrop_reg(stream_info);
 		return 0;
 	}
 
@@ -4517,26 +4506,11 @@ void msm_isp_process_axi_irq_stream(struct vfe_device *vfe_dev,
 			ISP_DBG("%s: Error configuring ping_pong\n",
 				__func__);
 	} else if (done_buf && (done_buf->is_drop_reconfig != 1)) {
-		int32_t frame_id_diff;
-		/* irq_sof should be always >= tasklet SOF id
-		 * For dual camera usecase irq_sof could be behind
-		 * as software frameid sync logic epoch event could
-		 * update slave frame id so update if irqsof < tasklet sof
+		/*
+		 * No SOF-gap recovery (ISP_EVENT_PING_PONG_MISMATCH) for
+		 * controllable output as on 4.4: the a9y18qlte mm-camera
+		 * does not handle it.
 		 */
-		if (vfe_dev->irq_sof_id < frame_id)
-			vfe_dev->irq_sof_id = frame_id;
-
-		frame_id_diff = vfe_dev->irq_sof_id - frame_id;
-		if (stream_info->controllable_output && frame_id_diff > 1) {
-			pr_err_ratelimited("%s: scheduling problem do recovery irq_sof_id %d frame_id %d\n",
-				__func__, vfe_dev->irq_sof_id, frame_id);
-			/* scheduling problem need to do recovery */
-			stream_info->buf[pingpong_bit] = done_buf;
-			spin_unlock_irqrestore(&stream_info->lock, flags);
-			msm_isp_halt_send_error(vfe_dev,
-				ISP_EVENT_PING_PONG_MISMATCH);
-			return;
-		}
 		msm_isp_cfg_stream_scratch(stream_info, pingpong_status);
 	}
 	if (!done_buf) {
@@ -4605,21 +4579,13 @@ void msm_isp_process_axi_irq_stream(struct vfe_device *vfe_dev,
 		}
 		spin_unlock_irqrestore(&stream_info->lock, flags);
 	} else {
-		/* If there is no regupdate from userspace then dont
-		 * free buffer immediately, delegate it to RegUpdateAck
+		/*
+		 * Buf done right away as on 4.4, not delegated to the reg
+		 * update ack when userspace has no reg update pending.
 		 */
-		if (stream_info->controllable_output &&
-			!(vfe_dev->reg_update_requested &
-				BIT((uint32_t)VFE_PIX_0))) {
-			stream_info->pending_buf_info.is_buf_done_pending = 1;
-			stream_info->pending_buf_info.buf = done_buf;
-			stream_info->pending_buf_info.frame_id = frame_id;
-		}
 		spin_unlock_irqrestore(&stream_info->lock, flags);
-		if (stream_info->pending_buf_info.is_buf_done_pending != 1) {
-			msm_isp_process_done_buf(vfe_dev, stream_info,
-				done_buf, time_stamp, frame_id);
-		}
+		msm_isp_process_done_buf(vfe_dev, stream_info,
+			done_buf, time_stamp, frame_id);
 	}
 }
 
