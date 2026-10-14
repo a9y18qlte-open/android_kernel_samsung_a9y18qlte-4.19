@@ -39,6 +39,7 @@
 #define PROXY_TIMEOUT_MS	10000
 #define MAX_SSR_REASON_LEN	256U
 #define STOP_ACK_TIMEOUT_MS	1000
+#define SMEM_HOST_MODEM		1
 
 #define subsys_to_drv(d) container_of(d, struct modem_data, subsys_desc)
 
@@ -52,6 +53,10 @@ static void log_modem_sfr(struct modem_data *drv)
 
 	smem_reason = qcom_smem_get(QCOM_SMEM_HOST_ANY, drv->q6->smem_id,
 								&size);
+	/* sdm660 modems keep it in the apps-modem partition */
+	if (IS_ERR(smem_reason))
+		smem_reason = qcom_smem_get(SMEM_HOST_MODEM, drv->q6->smem_id,
+					    &size);
 	if (IS_ERR(smem_reason) || !size) {
 		pr_err("modem SFR: (unknown, qcom_smem_get failed).\n");
 		return;
