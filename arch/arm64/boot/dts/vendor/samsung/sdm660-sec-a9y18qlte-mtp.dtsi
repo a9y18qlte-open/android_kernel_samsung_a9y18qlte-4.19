@@ -226,3 +226,27 @@
 &spi_7 {
 	status = "disabled";
 };
+
+/*
+ * 4.4 cam_smmu mapped camera buffers in [128K, 2G - 128M). sdm660-camera.dtsi
+ * puts that window (qcom,iommu-dma-addr-pool) on the cam_smmu parent, but
+ * arm_iommu_get_dma_window() reads it from each context bank device, so the
+ * banks got the whole 32-bit space and IOVAs from the top down. CPP buffers
+ * ending at 4G wrap its 32-bit fetch/write and MMU prefetch ranges to 0:
+ * page faults at address 0 and CPP hangs mid-stream.
+ */
+&{/soc/qcom,cam_smmu/msm_cam_smmu_cb1} {
+	qcom,iommu-dma-addr-pool = <0x00020000 0x78000000>;
+};
+
+&{/soc/qcom,cam_smmu/msm_cam_smmu_cb2} {
+	qcom,iommu-dma-addr-pool = <0x00020000 0x78000000>;
+};
+
+&{/soc/qcom,cam_smmu/msm_cam_smmu_cb4} {
+	qcom,iommu-dma-addr-pool = <0x00020000 0x78000000>;
+};
+
+&{/soc/qcom,cam_smmu/msm_cam_smmu_cb5} {
+	qcom,iommu-dma-addr-pool = <0x00020000 0x78000000>;
+};
