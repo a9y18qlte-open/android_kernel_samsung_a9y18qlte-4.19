@@ -289,14 +289,17 @@ static int msm_hs_ioctl(struct uart_port *uport, unsigned int cmd,
 		return -ENODEV;
 
 	switch (cmd) {
+	case MSM_ENABLE_UART_CLOCK_LEGACY:
 	case MSM_ENABLE_UART_CLOCK: {
 		ret = msm_hs_request_clock_on(&msm_uport->uport);
 		break;
 	}
+	case MSM_DISABLE_UART_CLOCK_LEGACY:
 	case MSM_DISABLE_UART_CLOCK: {
 		ret = msm_hs_request_clock_off(&msm_uport->uport);
 		break;
 	}
+	case MSM_GET_UART_CLOCK_STATUS_LEGACY:
 	case MSM_GET_UART_CLOCK_STATUS: {
 		/* Return value 0 - UART CLOCK is OFF
 		 * Return value 1 - UART CLOCK is ON
