@@ -20,6 +20,7 @@
 #include <linux/of_platform.h>
 #include <linux/iommu.h>
 #include <linux/slab.h>
+#include <linux/sched.h>
 #include <linux/dma-mapping.h>
 #include <linux/msm_dma_iommu_mapping.h>
 #include <linux/workqueue.h>
@@ -691,18 +692,48 @@ static struct cam_dma_buff_info *cam_smmu_find_mapping_by_virt_address(int idx,
 	return NULL;
 }
 
+/*
+ * Buffers are looked up by fd, but userspace may close an fd after mapping
+ * it and get the same number back for another buffer: match on the dma-buf
+ * behind the fd when it still resolves, on the fd number only otherwise.
+ */
+static struct dma_buf *cam_smmu_get_fd_buf(int ion_fd)
+{
+	struct dma_buf *buf;
+
+	/* Buffers are released from the node close during do_exit() too */
+	if (!current->files)
+		return NULL;
+
+	buf = dma_buf_get(ion_fd);
+	return IS_ERR(buf) ? NULL : buf;
+}
+
+static bool cam_smmu_mapping_matches(struct cam_dma_buff_info *mapping,
+		int ion_fd, struct dma_buf *buf)
+{
+	if (buf)
+		return mapping->buf == buf;
+	return mapping->ion_fd == ion_fd;
+}
+
 static struct cam_dma_buff_info *cam_smmu_find_mapping_by_ion_index(int idx,
 		int ion_fd)
 {
 	struct cam_dma_buff_info *mapping;
+	struct dma_buf *buf = cam_smmu_get_fd_buf(ion_fd);
 
 	list_for_each_entry(mapping, &iommu_cb_set.cb_info[idx].smmu_buf_list,
 			list) {
-		if (mapping->ion_fd == ion_fd) {
+		if (cam_smmu_mapping_matches(mapping, ion_fd, buf)) {
 			CDBG(" find ion_fd %d\n", ion_fd);
+			if (buf)
+				dma_buf_put(buf);
 			return mapping;
 		}
 	}
+	if (buf)
+		dma_buf_put(buf);
 
 	pr_err("Error: Cannot find fd %d by index %d\n",
 		ion_fd, idx);
@@ -1134,17 +1165,22 @@ static enum cam_smmu_buf_state cam_smmu_check_fd_in_list(int idx,
 					size_t *len_ptr)
 {
 	struct cam_dma_buff_info *mapping;
+	struct dma_buf *buf = cam_smmu_get_fd_buf(ion_fd);
 
 	list_for_each_entry(mapping,
 			&iommu_cb_set.cb_info[idx].smmu_buf_list,
 			list) {
-		if (mapping->ion_fd == ion_fd) {
+		if (cam_smmu_mapping_matches(mapping, ion_fd, buf)) {
 			mapping->ref_count++;
 			*paddr_ptr = mapping->paddr;
 			*len_ptr = mapping->len;
+			if (buf)
+				dma_buf_put(buf);
 			return CAM_SMMU_BUFF_EXIST;
 		}
 	}
+	if (buf)
+		dma_buf_put(buf);
 	return CAM_SMMU_BUFF_NOT_EXIST;
 }
 
