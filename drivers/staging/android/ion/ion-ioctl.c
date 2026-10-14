@@ -183,15 +183,33 @@ long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		 */
 		if (!data.handle.handle)
 			ret = -ENOTTY;
+		else
+			ret = ion_legacy_free_fd(data.handle.handle);
 
 		break;
+	/*
+	 * Handles are buffer fds: hand out a descriptor of its own for each
+	 * share/map/import, as separate handles and fds were on 4.4.
+	 */
 	case ION_IOC_SHARE:
 	case ION_IOC_MAP:
-		data.fd.fd = data.fd.handle;
+	{
+		int fd = ion_legacy_dup_fd(data.fd.handle);
+
+		if (fd < 0)
+			return fd;
+		data.fd.fd = fd;
 		break;
+	}
 	case ION_IOC_IMPORT:
-		data.fd.handle = data.fd.fd;
+	{
+		int fd = ion_legacy_dup_fd(data.fd.fd);
+
+		if (fd < 0)
+			return fd;
+		data.fd.handle = fd;
 		break;
+	}
 	case ION_IOC_CUSTOM:
 		ret = ion_legacy_custom_ioctl(&data.custom);
 		break;
