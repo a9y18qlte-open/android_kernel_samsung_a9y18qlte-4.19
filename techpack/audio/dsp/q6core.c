@@ -21,6 +21,7 @@
 #include <dsp/audio_cal_utils.h>
 #include <dsp/apr_audio-v2.h>
 #include <soc/snd_event.h>
+#include <soc/qcom/subsystem_restart.h>
 #include <ipc/apr.h>
 #include "adsp_err.h"
 
@@ -2109,14 +2110,35 @@ static const struct snd_event_ops q6core_ssr_ops = {
 	.disable = q6core_ssr_disable,
 };
 
+/*
+ * On a9y18qlte 4.19 the ADSP sometimes stops serving glink right after
+ * boot: AVS never answers, and qrtr-ns blocks on the ADSP edge long enough
+ * for the modem to miss its EFS (rmt_storage) and err-fatal. Restart only
+ * the ADSP once; its glink edge reset also unblocks qrtr-ns.
+ */
+static void q6core_restart_stuck_adsp(void)
+{
+	static bool restarted;
+
+	if (restarted)
+		return;
+	restarted = true;
+
+	pr_err("%s: ADSP not answering after boot, restarting it\n", __func__);
+	subsystem_restart("adsp");
+}
+
 static int q6core_probe(struct platform_device *pdev)
 {
 	int32_t avs_state = 0;
 	int rc = 0;
 
 	rc = q6core_is_avs_up(&avs_state);
-	if (rc < 0)
+	if (rc < 0) {
+		q6core_restart_stuck_adsp();
+		rc = -EPROBE_DEFER;
 		goto err;
+	}
 	q6core_lcl.avs_state = avs_state;
 	rc = of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);
 	if (rc) {
