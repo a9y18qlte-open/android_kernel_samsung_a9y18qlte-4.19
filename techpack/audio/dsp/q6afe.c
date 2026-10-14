@@ -3210,7 +3210,12 @@ static int afe_port_topology_deregister(u16 port_id)
 done:
 	pr_debug("%s build ver mismatch - leaving function %d\n",
 		__func__, ret);
-	return ret;
+	/*
+	 * An older ADSP without the AVCS version query (-EOPNOTSUPP) has no
+	 * topology deregister either: nothing to do, so let the caller go on
+	 * and set the port topology.
+	 */
+	return 0;
 }
 
 #ifdef CONFIG_SEC_SND_ADAPTATION
