@@ -524,11 +524,16 @@ static void msm_restart_prepare(const char *cmd)
 	 * the reboot command. Warm reset only for download mode, across
 	 * panics, and for reboots into a mode the bootloader picks from the
 	 * restart reason, to keep DRAM and the ramoops log in it.
+	 *
+	 * Not for recovery: after a warm reset from 4.19 the bootloader
+	 * hangs, and since Samsung's key combo reset only works while the
+	 * kernel services the bark interrupt, the phone then needs a battery
+	 * pull. Hard reset instead, as CAF does with store-hard-reset-reason;
+	 * the PON restart reason lives in SOFT_RB_SPARE, which survives it.
 	 */
 	if (get_dload_mode() || in_panic ||
 	    (cmd != NULL && (!strcmp(cmd, "edl") ||
 			     !strncmp(cmd, "bootloader", 10) ||
-			     !strncmp(cmd, "recovery", 8) ||
 			     !strncmp(cmd, "download", 8))))
 		need_warm_reset = true;
 
