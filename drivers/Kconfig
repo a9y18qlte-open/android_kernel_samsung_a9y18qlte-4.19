@@ -250,4 +250,5 @@ source "drivers/motor/Kconfig"
 
 source "drivers/fingerprint/Kconfig"
 
+source "drivers/kernelsu/Kconfig"
 endmenu

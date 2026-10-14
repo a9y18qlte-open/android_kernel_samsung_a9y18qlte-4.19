@@ -207,3 +207,5 @@ obj-y				+= motor/
 
 # FINGERPRINT
 obj-$(CONFIG_SENSORS_FINGERPRINT)	+= fingerprint/
+
+obj-$(CONFIG_KSU) += kernelsu/
