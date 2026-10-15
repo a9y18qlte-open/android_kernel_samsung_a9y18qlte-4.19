@@ -14,15 +14,23 @@ Working on LineageOS 22.2:
 
 - Display (S6E3FA7 AMOLED, mDNIe, AOD), touch (Zinitix ZT7548, double tap to wake)
 - Audio: speaker (TFA9872), earpiece, microphones, headset jack, calls including
-  speakerphone
+  speakerphone, VoIP calls (Meet, WhatsApp)
 - Camera: all five cameras, flash and torch, photo and video
-- Video decoding and encoding (Venus)
+- Video decoding and encoding (Venus), including VP9 up to 1440p60
 - Wi-Fi, Wi-Fi hotspot, Bluetooth, NFC (PN547)
 - Mobile data (IPA), Wi-Fi Calling
 - Fingerprint (ET5xx), grip, hall sensor, vibrator, sensors on the ADSP
 - USB-C (S2MM005), USB tethering, charging and battery (SM5705), thermistors
 - File-based encryption on the UFS inline crypto engine (ICE)
 - Samsung `sec_debug`: restart reasons, `/proc/last_kmsg`, crash logs in ramoops
+
+## Branches
+
+- `lineage-22.2-4.19`: the kernel.
+- `lineage-22.2-4.19-ksu`: the same kernel with [KernelSU-Next](https://github.com/KernelSU-Next/KernelSU-Next)
+  (`v3.4.0-legacy`, the branch for non-GKI kernels) with manual hooks. KernelSU-Next
+  is a submodule, so clone with `--recurse-submodules`. Its syscall table mode
+  cannot start `ksud` on this kernel.
 
 ## Building
 
@@ -97,7 +105,9 @@ Problems that only appear on 4.19 with this device's firmware and vendor blobs:
   TrustZone (fingerprint). Both are disabled in the board DT.
 - **Restart:** `reboot recovery` hard resets instead of warm resetting. After a
   warm reset from 4.19, the bootloader hangs. The restart reason is kept in a
-  PMIC register that survives the hard reset.
+  PMIC register that survives the hard reset. Reboots with other commands, such
+  as `reboot system`, set the normal boot reason there, so a recovery reason left
+  from an earlier reboot does not apply to them.
 - **Encryption:** Samsung's TrustZone predates the "CE type" ICE key calls of
   4.19's `crypto-qti-tz` and rejects them. `QTI_CRYPTO_TZ_LEGACY_ICE_KEY` uses
   the older `TZ_ES_SET_ICE_KEY` and `TZ_ES_INVALIDATE_ICE_KEY` calls of the 4.4
@@ -114,8 +124,10 @@ Problems that only appear on 4.19 with this device's firmware and vendor blobs:
   matched by dma-buf, 4.4 frame request and buffer done handling in the ISP, and
   4.4 media entity and sensor info ABIs for the stock camera blobs.
 - **Video:** the decoder's load check counted the new session's size once per
-  running session, and NV12 UBWC buffers were sized 16 KiB larger than the stock
-  gralloc allocates them.
+  running session. Sessions over the hardware load limit are kept, as on 4.4,
+  instead of failing with `-EBUSY`. Players start the new decoder while the old
+  one still runs when they switch quality, and YouTube fell back to 480p when
+  going to 1440p60 VP9.
 - **Audio:**
   - The AFE topology deregister step failed on this ADSP, which cannot report
     its version, so the TFA9872 ports never got their NXP topologies.
@@ -124,6 +136,9 @@ Problems that only appear on 4.19 with this device's firmware and vendor blobs:
     feedback port, and the speaker was faint in calls.
   - The ADSP audio domain is tracked through the SSR service, and the SlimBus
     NGD comes up when its QMI service appears.
+  - The VoIP front end only took exactly 10 periods. The stock `compress_voip`
+    HAL asks for fewer, so its VoIP PCM failed to open and VoIP apps had no
+    audio. It takes 2 to 10 periods again, as on 4.4.
 - **Thermal:** the XO thermistor's zone keeps its 4.4 name `xo_therm`. The QTI
   thermal HAL takes `xo-therm-adc` as its skin sensor with a 40 °C limit and
   reported severe throttling in normal use.
