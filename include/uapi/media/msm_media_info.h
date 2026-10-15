@@ -1313,12 +1313,7 @@ static inline unsigned int VENUS_BUFFER_SIZE(unsigned int color_fmt,
 			size = (y_ubwc_plane + uv_ubwc_plane + y_meta_plane +
 				uv_meta_plane)+(64 * y_stride);
 		}
-		/*
-		 * No UBWC_EXTRA_SIZE: the decoder's output buffers come from
-		 * gralloc, which sizes NV12 UBWC without it, as 4.4 did. With
-		 * it, vb2 turns every buffer down as 16K smaller than the
-		 * plane size.
-		 */
+		size += UBWC_EXTRA_SIZE;
 		break;
 	case COLOR_FMT_NV12_BPP10_UBWC:
 		y_ubwc_plane = MSM_MEDIA_ALIGN(y_stride * y_sclines, 4096);
