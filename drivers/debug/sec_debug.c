@@ -491,6 +491,11 @@ void sec_debug_update_restart_reason(const char *cmd, const int in_panic)
 	__pr_err("(%s) unknown reboot command : %s\n",
 	       __func__, cmd_buf);
 
+	/* Clear the PON reason too, as for a plain reboot: else a recovery
+	 * reason left from entering recovery makes "reboot system" from
+	 * recovery boot recovery again.
+	 */
+	qpnp_pon_set_restart_reason(PON_RESTART_REASON_NORMALBOOT);
 	__sec_debug_set_restart_reason(RESTART_REASON_REBOOT);
 
 	return;
