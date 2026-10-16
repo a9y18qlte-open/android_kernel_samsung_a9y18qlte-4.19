@@ -103,11 +103,17 @@ Problems that only appear on 4.19 with this device's firmware and vendor blobs:
 - **Boot:** two SPI buses hang the SoC when probed. `spi_7` is enabled by the
   qcom audio DT but is `i2c_7` (the TFA9872) on the A9, and `spi_3` belongs to
   TrustZone (fingerprint). Both are disabled in the board DT.
-- **Restart:** `reboot recovery` hard resets instead of warm resetting. After a
-  warm reset from 4.19, the bootloader hangs. The restart reason is kept in a
-  PMIC register that survives the hard reset. Reboots with other commands, such
-  as `reboot system`, set the normal boot reason there, so a recovery reason left
-  from an earlier reboot does not apply to them.
+- **Restart:** CAF's UFS power down sequence asserts the device reset (RST_N)
+  in the shutdown path and leaves it asserted. The TLMM keeps the pin across a
+  warm reset, so after `reboot recovery` Samsung's bootloader found the UFS
+  device still in reset, could not read it and fell into the Qualcomm crash
+  dump mode (black screen, `QUSB__BULK` on the PC, only a battery disconnect
+  helped). RST_N is now only asserted when powering off. Warm resets, which
+  keep DRAM and the ramoops log, are used for panics, crash dump mode, `edl` and
+  recovery. Every other reboot hard resets, as on the stock kernel. The restart
+  reason is kept in a PMIC register that survives either reset. Reboots with
+  other commands, such as `reboot system`, set the normal boot reason there, so
+  a recovery reason left from an earlier reboot does not apply to them.
 - **Encryption:** Samsung's TrustZone predates the "CE type" ICE key calls of
   4.19's `crypto-qti-tz` and rejects them. `QTI_CRYPTO_TZ_LEGACY_ICE_KEY` uses
   the older `TZ_ES_SET_ICE_KEY` and `TZ_ES_INVALIDATE_ICE_KEY` calls of the 4.4
@@ -161,5 +167,3 @@ Problems that only appear on 4.19 with this device's firmware and vendor blobs:
   down. It only happens during shutdown and does not affect the next boot.
 - **ADSP stall:** why the ADSP occasionally stops right after boot is not
   known. The restart at probe recovers it.
-- **Warm reset into recovery:** why the bootloader hangs after a warm reset
-  from 4.19 is not known. A hard reset is used instead.
