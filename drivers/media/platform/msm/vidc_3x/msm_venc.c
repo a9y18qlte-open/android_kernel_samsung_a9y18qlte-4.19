@@ -4615,11 +4615,65 @@ exit:
 	return rc;
 }
 
+/* frames per measurement: about 170 ms at 60 fps */
+#define INPUT_FPS_WINDOW 10
+
+/*
+ * Clients that do not set the frame rate get the default of 30 fps, and
+ * clock, bus and rate control votes are made for that. Camera apps that
+ * record faster without telling the encoder (CameraX does not pass a fixed
+ * AE target range on to it) then overload the core and the camera drops
+ * frames waiting for input buffers. Measure the input frame rate from the
+ * buffer timestamps and raise the session frame rate when it is clearly
+ * higher, as if the client had set it.
+ */
+static void msm_venc_update_input_fps(struct msm_vidc_inst *inst,
+		struct v4l2_buffer *b)
+{
+	struct v4l2_streamparm parm;
+	u64 ts, span;
+	u32 fps;
+
+	if (b->type != V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE ||
+			(b->flags & V4L2_QCOM_BUF_FLAG_EOS))
+		return;
+
+	ts = (u64)b->timestamp.tv_sec * USEC_PER_SEC + b->timestamp.tv_usec;
+	if (!inst->input_ts_count || ts <= inst->input_ts_last) {
+		/* first frame of a window, or timestamps went back */
+		inst->input_ts_first = ts;
+		inst->input_ts_last = ts;
+		inst->input_ts_count = 1;
+		return;
+	}
+	inst->input_ts_last = ts;
+	if (inst->input_ts_count++ < INPUT_FPS_WINDOW)
+		return;
+
+	inst->input_ts_count = 0;
+	span = ts - inst->input_ts_first;
+	if (!span)
+		return;
+	fps = (u32)div64_u64((u64)INPUT_FPS_WINDOW * USEC_PER_SEC + span / 2,
+			span);
+	if (fps <= inst->prop.fps + inst->prop.fps / 5 || fps > 240)
+		return;
+
+	dprintk(VIDC_PROF, "%s: input runs at %u fps, session set to %u fps\n",
+			__func__, fps, inst->prop.fps);
+	memset(&parm, 0, sizeof(parm));
+	parm.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+	parm.parm.output.timeperframe.numerator = 1;
+	parm.parm.output.timeperframe.denominator = fps;
+	msm_vidc_comm_s_parm(inst, &parm);
+}
+
 int msm_venc_qbuf(struct msm_vidc_inst *inst, struct v4l2_buffer *b)
 {
 	struct buf_queue *q = NULL;
 	int rc = 0;
 
+	msm_venc_update_input_fps(inst, b);
 	q = msm_comm_get_vb2q(inst, b->type);
 	if (!q) {
 		dprintk(VIDC_ERR,

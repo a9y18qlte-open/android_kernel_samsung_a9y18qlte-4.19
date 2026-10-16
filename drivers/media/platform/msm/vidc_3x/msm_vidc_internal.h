@@ -311,6 +311,10 @@ struct msm_vidc_inst {
 	atomic_t in_flush;
 	u32 pic_struct;
 	u32 colour_space;
+	/* encoder input frame rate measured from buffer timestamps */
+	u64 input_ts_first;
+	u64 input_ts_last;
+	u32 input_ts_count;
 };
 
 extern struct msm_vidc_drv *vidc_driver;
