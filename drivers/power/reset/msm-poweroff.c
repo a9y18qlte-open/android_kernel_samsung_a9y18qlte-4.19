@@ -521,15 +521,15 @@ static void msm_restart_prepare(const char *cmd)
 	 * A warm reset leaves the PMIC power-on reason as it was. After a
 	 * charger power-on it stays "CBL", so the bootloader boots into
 	 * offline charging on every reboot with a charger attached, whatever
-	 * the reboot command. Warm reset only for download mode, across
-	 * panics, and for reboots into a mode the bootloader picks from the
-	 * restart reason, to keep DRAM and the ramoops log in it.
+	 * the reboot command. Warm reset only where DRAM has to survive: for
+	 * download mode and edl, as the stock kernel does, across panics, and
+	 * into recovery, to keep the ramoops log of the boot rebooted from.
+	 * The bootloader picks recovery from the restart reason rather than
+	 * the power-on reason.
 	 */
 	if (get_dload_mode() || in_panic ||
 	    (cmd != NULL && (!strcmp(cmd, "edl") ||
-			     !strncmp(cmd, "bootloader", 10) ||
-			     !strncmp(cmd, "recovery", 8) ||
-			     !strncmp(cmd, "download", 8))))
+			     !strncmp(cmd, "recovery", 8))))
 		need_warm_reset = true;
 
 	if (force_warm_reboot)
