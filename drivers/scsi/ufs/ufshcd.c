@@ -10433,8 +10433,13 @@ disable_clks:
 	 */
 	ufshcd_disable_irq(hba);
 
-	/* reset the connected UFS device during power down */
-	if (ufshcd_is_link_off(hba)) {
+	/*
+	 * Reset the connected UFS device during power down, but not when
+	 * shutting down for a restart: the TLMM keeps RST_N asserted across
+	 * a warm reset, and Samsung's bootloader then cannot read UFS and
+	 * falls into the Qualcomm crash dump mode.
+	 */
+	if (ufshcd_is_link_off(hba) && system_state != SYSTEM_RESTART) {
 		ret = ufshcd_assert_device_reset(hba);
 		if (ret)
 			goto set_link_active;
