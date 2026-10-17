@@ -28,9 +28,10 @@ Working on LineageOS 22.2:
 
 - `lineage-22.2-4.19`: the kernel.
 - `lineage-22.2-4.19-ksu`: the same kernel with [KernelSU-Next](https://github.com/KernelSU-Next/KernelSU-Next)
-  (`v3.4.0-legacy`, the branch for non-GKI kernels) with manual hooks. KernelSU-Next
-  is a submodule, so clone with `--recurse-submodules`. Its syscall table mode
-  cannot start `ksud` on this kernel.
+  (`v3.4.0-legacy`, the branch for non-GKI kernels) with manual hooks, off by
+  default and enabled by the `vendor/ksu.config` fragment. KernelSU-Next is a
+  submodule, so clone with `--recurse-submodules`. Its syscall table mode cannot
+  start `ksud` on this kernel.
 
 ## Building
 
@@ -47,6 +48,10 @@ In an Android device tree:
 TARGET_KERNEL_CONFIG := vendor/sdm660-perf_defconfig
 TARGET_KERNEL_ADDITIONAL_CONFIG := vendor/a9y18qlte.config
 ```
+
+On `lineage-22.2-4.19-ksu`, KernelSU-Next is built in when `vendor/ksu.config`
+follows `vendor/a9y18qlte.config`, e.g.
+`make ARCH=arm64 O=out vendor/sdm660-perf_defconfig vendor/a9y18qlte.config vendor/ksu.config`.
 
 The output is `arch/arm64/boot/Image.gz-dtb`: the kernel with the A9 device tree
 (`sdm660-sec-a9y18qlte-eur-r06`) appended, as Samsung's bootloader expects.
