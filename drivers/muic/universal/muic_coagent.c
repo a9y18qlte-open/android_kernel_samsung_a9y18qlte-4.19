@@ -117,7 +117,7 @@ bool coagent_alive(void)
 	return pco->is_active;
 }
 
-static int __init init_fifo_test(void)
+static int init_fifo_test(void)
 {
 	struct coagent *pco = &base_coagent;
 	unsigned int i;
