@@ -2839,7 +2839,7 @@ static irqreturn_t bt532_touch_work(int irq, void *data)
 		input_info(true, &info->client->dev, "%s: run LPM interrupt handler, %d\n", __func__, ret);
 	}
 
-	if (gpio_get_value(info->pdata->gpio_int)) {
+	if (!info->sleep_mode && gpio_get_value(info->pdata->gpio_int)) {
 		input_err(true, &client->dev, "Invalid interrupt\n");
 
 		return IRQ_HANDLED;
