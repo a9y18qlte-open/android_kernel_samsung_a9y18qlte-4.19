@@ -39,6 +39,7 @@ enum {
 #define SM5705_OPERATION_MODE_MASK  0x07
 #define SM5705_BSTOUT_MASK          0x0F
 #define SM5705_OTGCURRENT_MASK      0xC
+#define SM5705_CHARGER_OP_BOOST_LOADS	make_OP_STATUS(0,0,1,1,1,1)
 struct sm5705_charger_oper_table_info {
 	unsigned char status;
 	unsigned char oper_mode;
@@ -131,11 +132,14 @@ static inline void sm5705_charger_oper_change_state(unsigned char new_status)
 		pr_err("sm5705-charger: %s: can't find matched Charger Operation Mode Table (status = 0x%x)\n", __func__, new_status);
 		return;
 	}
-	if (oper_info.suspend_mode) {
+	/* Flash, torch and OTG run from the boost, keep them working while the input is suspended */
+	if (oper_info.suspend_mode && !(new_status & SM5705_CHARGER_OP_BOOST_LOADS)) {
+		sm5705_charger_oper_set_mode(oper_info.i2c, SM5705_CHARGER_OP_MODE_SUSPEND);
+		oper_info.current_table.oper_mode = SM5705_CHARGER_OP_MODE_SUSPEND;
 		pr_info("sm5705-charger: %s: skip setting by suspend mode(MODE: %d)\n",
 			__func__, oper_info.current_table.oper_mode);
 		goto skip_oper_change_state;
-	}	
+	}
 	if (sm5705_charger_operation_mode_table[i].BST_OUT != oper_info.current_table.BST_OUT) {
 		sm5705_charger_oper_set_BSTOUT(oper_info.i2c, sm5705_charger_operation_mode_table[i].BST_OUT);
 		oper_info.current_table.BST_OUT = sm5705_charger_operation_mode_table[i].BST_OUT;
@@ -174,10 +178,8 @@ int sm5705_charger_oper_push_event(int event_type, bool enable)
 	pr_info("sm5705-charger: %s: event_type=%d, enable=%d\n", __func__, event_type, enable);
 	if (event_type == SM5705_CHARGER_OP_EVENT_SUSPEND_MODE) {
 		oper_info.suspend_mode = enable;
-		if (oper_info.suspend_mode) {
-			oper_info.current_table.oper_mode = SM5705_CHARGER_OP_MODE_SUSPEND;
-			sm5705_charger_oper_set_mode(oper_info.i2c, SM5705_CHARGER_OP_MODE_SUSPEND);			
-		} else if (oper_info.current_table.oper_mode == SM5705_CHARGER_OP_MODE_SUSPEND)
+		if (oper_info.suspend_mode ||
+			oper_info.current_table.oper_mode == SM5705_CHARGER_OP_MODE_SUSPEND)
 			sm5705_charger_oper_change_state(oper_info.current_table.status);
 		goto out;
 	}
