@@ -3862,6 +3862,44 @@ void read_panel_data_work_fn(struct delayed_work *work)
 /*********************/
 /* LPM control       */
 /*********************/
+
+/*
+ * In LPM the panel ignores the normal brightness commands and shows the
+ * always-on display at 2 or 60 nit. Pick the level from the brightness
+ * Android sets for the always-on display, which follows ambient light:
+ * 2 nit at the bottom of the range, 60 nit above it.
+ */
+#define LPM_2NIT_MAX_BL_LEVEL	8
+
+/* LPM requests, as Samsung's AOD service writes them to the alpm node */
+#define LPM_REQ_HLPM_2NIT	(MAX_LPM_MODE + 2)
+#define LPM_REQ_HLPM_60NIT	(MAX_LPM_MODE + 4)
+
+/*
+ * Update the LPM on commands for bl_level. Returns true if the level changed.
+ * Called with vdd_panel_lpm_lock held.
+ */
+static bool ss_panel_lpm_update_level(struct mdss_dsi_ctrl_pdata *ctrl,
+		struct samsung_display_driver_data *vdd, int bl_level)
+{
+	int lpm_bl_level = bl_level <= LPM_2NIT_MAX_BL_LEVEL ?
+			PANEL_LPM_2NIT : PANEL_LPM_60NIT;
+	u8 mode = lpm_bl_level == PANEL_LPM_2NIT ?
+			LPM_REQ_HLPM_2NIT : LPM_REQ_HLPM_60NIT;
+
+	if (!vdd->panel_func.samsung_get_panel_lpm_mode)
+		return false;
+
+	if (vdd->panel_lpm.mode == HLPM_MODE_ON &&
+			vdd->panel_lpm.lpm_bl_level == lpm_bl_level)
+		return false;
+
+	vdd->panel_func.samsung_get_panel_lpm_mode(ctrl, &mode);
+	vdd->panel_lpm.mode = mode;
+
+	return true;
+}
+
 void mdss_samsung_panel_low_power_config(struct mdss_panel_data *pdata, int enable)
 {
 	struct mdss_dsi_ctrl_pdata *ctrl = NULL;
@@ -4091,6 +4129,8 @@ void mdss_samsung_panel_lpm_ctrl(struct mdss_panel_data *pdata, int enable)
 			LCD_DEBUG("%ums delay before turn on lpm mode",
 					lpm_init_delay);
 		}
+
+		ss_panel_lpm_update_level(ctrl, vdd, vdd->bl_level);
 
 		mdss_samsung_send_cmd(ctrl, TX_LPM_ON);
 		LCD_DEBUG("[Panel LPM] Send panel LPM cmds\n");
@@ -4822,6 +4862,21 @@ int mdss_samsung_brightness_dcs(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 
 	if (vdd->mfd_dsi[DISPLAY_1]->panel_info->cont_splash_enabled) {
 		LCD_ERR("splash is not done..\n");
+		return 0;
+	}
+
+	/* In LPM, the brightness picks the LPM level instead */
+	if (ctrl->panel_data.panel_info.blank_state == MDSS_PANEL_BLANK_LOW_POWER &&
+			!vdd->is_factory_mode) {
+		bool changed;
+
+		mutex_lock(&vdd->vdd_panel_lpm_lock);
+		changed = ss_panel_lpm_update_level(ctrl, vdd, level);
+		mutex_unlock(&vdd->vdd_panel_lpm_lock);
+
+		if (changed)
+			mdss_samsung_panel_lpm_ctrl(&ctrl->panel_data, true);
+
 		return 0;
 	}
 
