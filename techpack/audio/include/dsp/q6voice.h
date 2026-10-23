@@ -2126,6 +2126,9 @@ uint32_t voc_get_session_id(char *name);
 int voc_start_playback(uint32_t set, uint16_t port_id);
 int voc_start_record(uint32_t port_id, uint32_t set, uint32_t session_id);
 int voice_get_idx_for_session(u32 session_id);
+#ifdef CONFIG_SEC_SND_ADAPTATION
+struct common_data *voice_get_common_data(void);
+#endif /* CONFIG_SEC_SND_ADAPTATION */
 int voc_set_ext_ec_ref_port_id(uint16_t port_id, bool state);
 int voc_get_ext_ec_ref_port_id(void);
 int voc_set_ext_ec_ref_media_fmt_info(struct media_format_info *finfo);
