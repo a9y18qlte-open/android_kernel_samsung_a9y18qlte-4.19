@@ -3059,6 +3059,26 @@ static struct snd_soc_dai_link ext_disp_be_dai_link[] = {
 	},
 };
 
+#ifdef CONFIG_SEC_SND_ADAPTATION
+/*
+ * Binds Samsung's adaptation component (its mixer controls) to the card.
+ * Last of all links, so no PCM device number moves.
+ */
+static struct snd_soc_dai_link msm_sec_adaptation_dai_link[] = {
+	{
+		.name = "ADAPTATION Hostless",
+		.stream_name = "ADAPTATION Hostless",
+		.cpu_dai_name = "snd-soc-dummy-dai",
+		.platform_name = "q6audio-adaptation",
+		.no_pcm = 1,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+	},
+};
+#endif /* CONFIG_SEC_SND_ADAPTATION */
+
 static struct snd_soc_dai_link msm_int_dai_links[
 ARRAY_SIZE(msm_int_dai) +
 ARRAY_SIZE(msm_int_wsa_dai) +
@@ -3068,6 +3088,9 @@ ARRAY_SIZE(msm_mi2s_be_dai_links) +
 ARRAY_SIZE(msm_auxpcm_be_dai_links)+
 ARRAY_SIZE(msm_wcn_be_dai_links) +
 ARRAY_SIZE(msm_wsa_be_dai_links) +
+#ifdef CONFIG_SEC_SND_ADAPTATION
+ARRAY_SIZE(msm_sec_adaptation_dai_link) +
+#endif /* CONFIG_SEC_SND_ADAPTATION */
 ARRAY_SIZE(ext_disp_be_dai_link)];
 
 static struct snd_soc_card sdm660_card = {
@@ -3215,6 +3238,11 @@ static struct snd_soc_card *msm_int_populate_sndcard_dailinks(
 			sizeof(ext_disp_be_dai_link));
 		len1 += ARRAY_SIZE(ext_disp_be_dai_link);
 	}
+#ifdef CONFIG_SEC_SND_ADAPTATION
+	memcpy(dailink + len1, msm_sec_adaptation_dai_link,
+	       sizeof(msm_sec_adaptation_dai_link));
+	len1 += ARRAY_SIZE(msm_sec_adaptation_dai_link);
+#endif /* CONFIG_SEC_SND_ADAPTATION */
 	card->dai_link = dailink;
 	card->num_links = len1;
 	return card;
