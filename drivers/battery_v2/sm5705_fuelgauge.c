@@ -2122,17 +2122,8 @@ static int sm5705_fg_get_property(struct power_supply *psy, enum power_supply_pr
 	case POWER_SUPPLY_PROP_ENERGY_FULL_DESIGN:
 		val->intval = fuelgauge->capacity_max;
 		break;
-	case POWER_SUPPLY_PROP_CHARGE_FULL:
-#if defined(CONFIG_BATTERY_AGE_FORECAST)
-		if (fuelgauge->info.q_max_table[0] > 0) {
-			int idx = get_v_max_index_by_cycle(fuelgauge->client);
-			val->intval = (fuelgauge->info.q_max_table[idx] * 1000) /
-				      fuelgauge->info.q_max_table[0];
-			break;
-		}
-#endif
-		return -ENODATA;
 	case POWER_SUPPLY_PROP_STATUS:
+	case POWER_SUPPLY_PROP_CHARGE_FULL:
 	case POWER_SUPPLY_PROP_ENERGY_NOW:
 		return -ENODATA;
 	default:
