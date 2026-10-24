@@ -186,7 +186,6 @@ static enum power_supply_property sec_battery_props[] = {
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_CURRENT_AVG,
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
-	POWER_SUPPLY_PROP_CHARGE_FULL,
 	POWER_SUPPLY_PROP_CHARGE_NOW,
 	POWER_SUPPLY_PROP_CHARGE_COUNTER,
 	POWER_SUPPLY_PROP_CAPACITY,
@@ -196,9 +195,6 @@ static enum power_supply_property sec_battery_props[] = {
 	POWER_SUPPLY_PROP_TIME_TO_FULL_NOW,
 #endif
 	POWER_SUPPLY_PROP_CHARGE_COUNTER_SHADOW,
-#if defined(CONFIG_BATTERY_AGE_FORECAST)
-	POWER_SUPPLY_PROP_CYCLE_COUNT,
-#endif
 };
 
 static enum power_supply_property sec_power_props[] = {
@@ -6529,24 +6525,6 @@ static int sec_bat_get_property(struct power_supply *psy,
 		val->intval = 0;
 #endif
 		break;
-	case POWER_SUPPLY_PROP_CHARGE_FULL:
-#if defined(CONFIG_BATTERY_CISD)
-		value.intval = 0;
-		psy_do_property(battery->pdata->fuelgauge_name, get,
-				POWER_SUPPLY_PROP_CHARGE_FULL, value);
-		if (value.intval > 0)
-			val->intval = battery->pdata->battery_full_capacity * value.intval;
-		else
-			val->intval = battery->pdata->battery_full_capacity * 1000;
-#else
-		val->intval = 0;
-#endif
-		break;
-#if defined(CONFIG_BATTERY_AGE_FORECAST)
-	case POWER_SUPPLY_PROP_CYCLE_COUNT:
-		val->intval = battery->batt_cycle >= 0 ? battery->batt_cycle : 0;
-		break;
-#endif
 	case POWER_SUPPLY_PROP_CAPACITY:
 		if (battery->pdata->fake_capacity) {
 			val->intval = 90;
