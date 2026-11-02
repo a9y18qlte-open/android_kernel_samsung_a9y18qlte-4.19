@@ -56,3 +56,18 @@
 	};
 };
 
+&spi_1 {
+	spi-max-frequency = <19200000>;
+	status = "okay";
+
+	ese_spi@0 {
+		compatible = "p61";
+		reg = <0>;
+		spi-max-frequency = <16000000>;
+		p61-ap_vendor = "qualcomm";
+		clock-names = "pclk", "sclk";
+		clocks = <&clock_gcc GCC_BLSP1_AHB_CLK>,
+			 <&clock_gcc GCC_BLSP1_QUP1_SPI_APPS_CLK>;
+	};
+};
+
