@@ -573,9 +573,7 @@ static ssize_t p61_dev_read(struct file *filp, char *buf, size_t count,
 {
 	int ret = -EIO;
 	struct p61_device *p61_dev = filp->private_data;
-	unsigned char sof = 0x00;
 	int total_count = 0;
-	//unsigned char rx_buffer[MAX_BUFFER_SIZE];
 
 	P61_DBG_MSG("p61_dev_read count %zu - Enter\n", count);
 
@@ -590,50 +588,16 @@ static ssize_t p61_dev_read(struct file *filp, char *buf, size_t count,
 	if (count > MAX_BUFFER_SIZE)
 		count = MAX_BUFFER_SIZE;
 
-	//memset(&rx_buffer[0], 0x00, sizeof(rx_buffer));
 	memset(p61_dev->buf, 0x00, MAX_BUFFER_SIZE);
 
-	P61_DBG_MSG(" %s Poll Mode Enabled\n", __func__);
-	do {
-		sof = 0x00;
-		ret = spi_read(p61_dev->spi, (void *)&sof, 1);
-		if (ret < 0) {
-			P61_ERR_MSG("spi_read failed [SOF]\n");
-			goto fail;
-		}
-		//P61_DBG_MSG(KERN_INFO"SPI_READ returned 0x%x\n", sof);
-		/* if SOF not received, give some time to P61 */
-		/* RC put the conditional delay only if SOF not received */
-		if (sof != SOF)
-			usleep_range(5000, 5100);
-	} while (sof != SOF);
-	P61_DBG_MSG("SPI_READ returned 0x%x...\n", sof);
-
-	total_count = 1;
-	//rx_buffer[0] = sof;
-	*p61_dev->buf = sof;
-	/* Read the HEADR of Two bytes*/
-	ret = spi_read(p61_dev->spi, p61_dev->buf + 1, 2);
+	/* Clock out exactly what was asked for and let the caller frame it. */
+	ret = spi_read(p61_dev->spi, p61_dev->buf, count);
 	if (ret < 0) {
-		P61_ERR_MSG("spi_read fails after [PCB]\n");
+		P61_ERR_MSG("%s : spi_read failed\n", __func__);
 		ret = -EIO;
 		goto fail;
 	}
-
-	total_count += 2;
-	/* Get the data length */
-	//count = rx_buffer[2];
-	count = *(p61_dev->buf + 2);
-	pr_info("Data Length = %zu", count);
-	/* Read the available data along with one byte LRC */
-	ret = spi_read(p61_dev->spi, (void *)(p61_dev->buf + 3), (count+1));
-	if (ret < 0) {
-		pr_err("%s spi_read failed\n", __func__);
-		ret = -EIO;
-		goto fail;
-	}
-	total_count = (total_count + (count+1));
-	P61_DBG_MSG(KERN_INFO"total_count = %d", total_count);
+	total_count = count;
 
 	if (copy_to_user(buf, p61_dev->buf, total_count)) {
 		P61_ERR_MSG("%s : failed to copy to user space\n", __func__);
