@@ -1005,7 +1005,8 @@ static int set_jcop_download_state(unsigned long arg)
 		if (pn547_dev->nfc_service_pid) {
 			NFC_LOG_INFO("nfc service pid ---- %ld\n",
 				pn547_dev->nfc_service_pid);
-			signal_handler(JCP_DWNLD_INIT, pn547_dev->nfc_service_pid);
+			signal_handler((enum p61_access_state)JCP_DWNLD_INIT,
+				pn547_dev->nfc_service_pid);
 		} else {
 			if (current_state & P61_STATE_JCP_DWNLD)
 				ret = -EINVAL;
@@ -1020,7 +1021,7 @@ static int set_jcop_download_state(unsigned long arg)
 			p61_update_access_state(pn547_dev, P61_STATE_JCP_DWNLD, true);
 	} else if (arg == JCP_SPI_DWNLD_COMPLETE) {
 		if (pn547_dev->nfc_service_pid) {
-			signal_handler(JCP_DWP_DWNLD_COMPLETE,
+			signal_handler((enum p61_access_state)JCP_DWP_DWNLD_COMPLETE,
 				pn547_dev->nfc_service_pid);
 		}
 		p61_update_access_state(pn547_dev, P61_STATE_JCP_DWNLD, false);
@@ -1042,6 +1043,10 @@ long pn547_dev_ioctl(struct file *filp,
 			   unsigned int cmd, unsigned long arg)
 {
 	/*struct pn547_dev *pn547_dev = filp->private_data;*/
+#ifdef CONFIG_NFC_PN547_ESE_SUPPORT
+	enum p61_access_state current_state;
+	int ret = 0;
+#endif
 
 	/*
 	 * The open source NXP HAL encodes the write ioctls with an unsigned
@@ -1053,9 +1058,6 @@ long pn547_dev_ioctl(struct file *filp,
 		cmd = _IOW(PN547_MAGIC, _IOC_NR(cmd), long);
 
 #ifdef CONFIG_NFC_PN547_ESE_SUPPORT
-	enum p61_access_state current_state;
-	int ret = 0;
-
 	/* Free pass autobahn area, not protected. Use it carefullly. START */
 	switch (cmd) {
 	case P547_GET_ESE_ACCESS:
