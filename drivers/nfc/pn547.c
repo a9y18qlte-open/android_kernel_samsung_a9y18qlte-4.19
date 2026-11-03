@@ -44,6 +44,7 @@
 #include <asm/siginfo.h>
 #include <linux/rcupdate.h>
 #include <linux/sched.h>
+#include <linux/sched/signal.h>
 #include <linux/signal.h>
 #include "./nfc_logger/nfc_logger.h"
 
