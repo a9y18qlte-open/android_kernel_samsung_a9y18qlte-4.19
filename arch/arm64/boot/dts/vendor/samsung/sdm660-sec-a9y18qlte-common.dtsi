@@ -69,6 +69,11 @@
 		status = "ok";
 		compatible = "gpio-keys";
 		input-name = "gpio-keys";
+		/* Samsung's 4.4 driver names the input device "gpio_keys"; this
+		 * driver takes the name from label, else "soc:gpio_keys", which
+		 * makes Android miss gpio_keys.kl and lose the Bixby key.
+		 */
+		label = "gpio_keys";
 
 		vol_up {
 			label = "volume_up";
